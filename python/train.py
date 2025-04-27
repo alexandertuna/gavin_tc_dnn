@@ -9,6 +9,12 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import time
 
+SEED = 42
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+np.random.seed(SEED)
+
 # local imports
 import preprocess
 
@@ -40,7 +46,7 @@ def main():
     # ------------------------------------------------------------
     # 5. Train the Model
     # ------------------------------------------------------------
-    num_epochs = 300 # 300
+    num_epochs = 30 # 300
     train_losses = []
     val_losses = []
 
@@ -322,7 +328,7 @@ def main():
     plt.tight_layout()
     # plt.show()
 
-    num_events = 20
+    num_events = 5
 
     # Initialize accumulators.
     sum_removed_nondup_real = 0
