@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
@@ -22,6 +25,9 @@ def main():
 
     file_path = "../data/LSTNtuple.root"
     branches, features, sim_indices, X_left, X_right, y = preprocess.preprocess_data(file_path)
+
+    pdf_path = "plots.pdf"
+    pdf = PdfPages(pdf_path)
 
     # Split into training and testing sets.
     X_left_train, X_left_test, X_right_train, X_right_test, y_train, y_test = train_test_split(
@@ -46,7 +52,7 @@ def main():
     # ------------------------------------------------------------
     # 5. Train the Model
     # ------------------------------------------------------------
-    num_epochs = 30 # 300
+    num_epochs = 100 # 300
     train_losses = []
     val_losses = []
 
@@ -112,6 +118,8 @@ def main():
     plt.ylabel("Duplicate Pairs (True Positives) Removed")
     plt.title("Duplicate Removal Performance")
     plt.grid(True)
+    pdf.savefig()
+    plt.close()
     # plt.show()
 
     # ----------------------------
@@ -158,6 +166,8 @@ def main():
     plt.yscale('log')
     plt.xscale('log')
     plt.legend()
+    pdf.savefig()
+    plt.close()
     # plt.show()
 
 
@@ -181,6 +191,8 @@ def main():
     plt.ylabel("Embedding Dimension 2")
     plt.title(f"Embedding Space for Event {event_idx}")
     plt.colorbar(sc, label="Sim Index")
+    pdf.savefig()
+    plt.close()
     # plt.show()
 
     # Plot the training and validation loss history.
@@ -192,6 +204,8 @@ def main():
     plt.title("Training and Validation Loss")
     plt.legend()
     plt.grid(True)
+    pdf.savefig()
+    plt.close()
     # plt.show()
 
 
@@ -263,6 +277,8 @@ def main():
         ax.legend(unique.values(), unique.keys(), loc='best')
 
     plt.tight_layout()
+    pdf.savefig()
+    plt.close()
     # plt.show()
 
     # ----------------------------
@@ -326,6 +342,8 @@ def main():
         ax.legend(unique.values(), unique.keys(), loc='best')
 
     plt.tight_layout()
+    pdf.savefig()
+    plt.close()
     # plt.show()
 
     num_events = 5
@@ -428,6 +446,9 @@ def main():
     print(f"Percent of duplicates removed: {percent_duplicates_removed:.2f}%")
 
     print_model_weights_biases(model)
+
+    # Save the PDF file
+    pdf.close()
 
 
 # ------------------------------------------------------------
