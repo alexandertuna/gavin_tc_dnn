@@ -3,15 +3,11 @@
 import numpy as np
 import matplotlib as mpl
 mpl.use("Agg")
+mpl.rcParams['font.size'] = 13
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-import time
 import pickle
-from enum import Enum
 
 SEED = 42
 torch.manual_seed(SEED)
@@ -151,24 +147,24 @@ class Plotter():
     def plot(self):
         with PdfPages(self.pdf_path) as pdf:
             self.plot_inputs_vs_embeddings(pdf)
-            # for view in VIEWS:
-            #     self.plot_derived(pdf, view)
-            # for view in VIEWS:
-            #     self.plot_derived_vs_embedding(pdf, view)
-            # for view in VIEWS:
-            #     # scan pt
-            #     # convert -delay 20 -loop 0 pt/*.png pt_animation.gif
-            #     type = PT5
-            #     # for pt in np.arange(0.5, 10, 0.1):
-            #     for pt in [0.5, 1.0, 2.0, 4.0, 8.0]:
-            #         img_name = f"pt/pt_{pt}.png"
-            #         self.plot_measured_distances(pdf, view, pt, pt, type, type, img_name)
+            for view in VIEWS:
+                self.plot_derived(pdf, view)
+            for view in VIEWS:
+                self.plot_derived_vs_embedding(pdf, view)
+            for view in VIEWS:
+                # scan pt
+                # convert -delay 20 -loop 0 pt/*.png pt_animation.gif
+                type = PT5
+                # for pt in np.arange(0.5, 10, 0.1):
+                for pt in [0.5, 1.0, 2.0, 4.0, 8.0]:
+                    img_name = f"pt/pt_{pt}.png"
+                    self.plot_measured_distances(pdf, view, pt, pt, type, type, img_name)
 
-            #     # scan types
-            #     pt = 1.0
-            #     type_l = PT5
-            #     for type_r in [PT5, PT3, PLS, T5]:
-            #         self.plot_measured_distances(pdf, view, pt, pt, type_l, type_r)
+                # scan types
+                pt = 1.0
+                type_l = PT5
+                for type_r in [PT5, PT3, PLS, T5]:
+                    self.plot_measured_distances(pdf, view, pt, pt, type_l, type_r)
 
 
     def plot_inputs_vs_embeddings(self, pdf):
@@ -192,7 +188,7 @@ class Plotter():
             ax[idx].set_title(f"All input data (ttbar, PU200)")
             # if idx == 1:
             #     print("1D eta distribution", n)
-        fig.subplots_adjust(hspace=0.3, wspace=0.35, left=0.05, right=0.95)
+        fig.subplots_adjust(wspace=0.35, bottom=0.15, left=0.07, right=0.95)
         pdf.savefig()
         plt.close()
 
@@ -202,7 +198,7 @@ class Plotter():
             ax[idx].set_xlabel(f"Embedding dimension {idx}")
             ax[idx].set_ylabel(f"Track candidates")
             ax[idx].set_title(f"All input data (ttbar, PU200)")
-        fig.subplots_adjust(hspace=0.3, wspace=0.35, left=0.05, right=0.95)
+        fig.subplots_adjust(wspace=0.35, bottom=0.15, left=0.07, right=0.95)
         pdf.savefig()
         plt.close()
 
@@ -223,7 +219,7 @@ class Plotter():
                 ax[emb].set_xlabel(INPUT_TITLES[inp])
                 ax[emb].set_ylabel(f"Embedding dimension {emb}")
                 ax[emb].set_title(f"All input data (ttbar, PU200)")
-            fig.subplots_adjust(wspace=0.35, left=0.05, right=0.95)
+            fig.subplots_adjust(wspace=0.35, bottom=0.15, left=0.07, right=0.95)
             pdf.savefig()
             plt.close()
 
@@ -238,7 +234,7 @@ class Plotter():
                 ax[sample, var].set_xlabel(LABEL[var])
                 ax[sample, var].set_ylabel("Track candidates")
                 ax[sample, var].set_title(TITLE[sample])
-        fig.subplots_adjust(hspace=0.3, wspace=0.35, left=0.05, right=0.95)
+        fig.subplots_adjust(hspace=0.35, wspace=0.37, left=0.06, right=0.96, top=0.95, bottom=0.10)
         pdf.savefig()
         plt.close()
 
@@ -256,7 +252,7 @@ class Plotter():
                 ax[sample, var].set_xlabel(LABEL[var])
                 ax[sample, var].set_ylabel("Distance in embedding space")
                 ax[sample, var].set_title(TITLE[sample])
-        fig.subplots_adjust(hspace=0.3, wspace=0.35, left=0.05, right=0.95)
+        fig.subplots_adjust(hspace=0.3, wspace=0.35, left=0.05, right=0.95, top=0.95, bottom=0.10)
         pdf.savefig()
         plt.close()
 
