@@ -175,6 +175,7 @@ cython_debug/
 
 # Misc
 *.pkl
+*.bak
 *.pdf
 *.root
 *~
