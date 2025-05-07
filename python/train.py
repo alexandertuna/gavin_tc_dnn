@@ -57,30 +57,47 @@ def main():
     num_epochs = 300 # 300
     train_losses = []
     val_losses = []
+    train_losses_similar = []
+    train_losses_dissimilar = []
+    val_losses_similar = []
+    val_losses_dissimilar = []
 
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
+        running_loss_similar = 0.0
+        running_loss_dissimilar = 0.0
         for batch_left, batch_right, batch_label in train_loader:
             optimizer.zero_grad()
             distances = model(batch_left, batch_right)
-            loss = criterion(distances, batch_label)
+            loss, loss_similar, loss_dissimilar = criterion(distances, batch_label)
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * batch_left.size(0)
+            running_loss_similar += loss_similar.item() * batch_left.size(0)
+            running_loss_dissimilar += loss_dissimilar.item() * batch_left.size(0)
         epoch_loss = running_loss / len(train_loader.dataset)
         train_losses.append(epoch_loss)
+        train_losses_similar.append(running_loss_similar / len(train_loader.dataset))
+        train_losses_dissimilar.append(running_loss_dissimilar / len(train_loader.dataset))
+
 
         # Validation step.
         model.eval()
         running_val_loss = 0.0
+        running_val_loss_similar = 0.0
+        running_val_loss_dissimilar = 0.0
         with torch.no_grad():
             for batch_left, batch_right, batch_label in test_loader:
                 distances = model(batch_left, batch_right)
-                loss = criterion(distances, batch_label)
+                loss, loss_similar, loss_dissimilar = criterion(distances, batch_label)
                 running_val_loss += loss.item() * batch_left.size(0)
+                running_val_loss_similar += loss_similar.item() * batch_left.size(0)
+                running_val_loss_dissimilar += loss_dissimilar.item() * batch_left.size(0)
         epoch_val_loss = running_val_loss / len(test_loader.dataset)
         val_losses.append(epoch_val_loss)
+        val_losses_similar.append(running_val_loss_similar / len(test_loader.dataset))
+        val_losses_dissimilar.append(running_val_loss_dissimilar / len(test_loader.dataset))
 
         print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {epoch_loss:.4f} - Val Loss: {epoch_val_loss:.4f} - now {time.strftime("%Y_%m_%d_%Hh%Mm%Ss")}")
 
@@ -123,6 +140,25 @@ def main():
     pdf.savefig()
     plt.close()
     # plt.show()
+
+    # ----------------------------
+    # 6. Performance Evaluation: loss components
+    # ----------------------------
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.plot(train_losses, label="Training Loss")
+    ax.plot(val_losses, label="Validation Loss")
+    ax.plot(train_losses_similar, label="Training Loss (Duplicates)")
+    ax.plot(val_losses_similar, label="Validation Loss (Duplicates)")
+    ax.plot(train_losses_dissimilar, label="Training Loss (Non-duplicates)")
+    ax.plot(val_losses_dissimilar, label="Validation Loss (Non-duplicates)")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss")
+    ax.set_title("Loss Components")
+    ax.legend()
+    ax.semilogy()
+    ax.grid(True)
+    pdf.savefig()
+    plt.close()
 
     # ----------------------------
     # 6. Performance Evaluation and Additional Plots

@@ -61,5 +61,5 @@ class ContrastiveLoss(nn.Module):
         loss_similar = (1 - label) * torch.pow(distance, 2)
         loss_dissimilar = label * torch.pow(torch.clamp(self.margin - distance, min=0.0), 2)
         loss = torch.mean(loss_similar + loss_dissimilar)
-        return loss
+        return loss, loss_similar.detach().mean(), loss_dissimilar.detach().mean()
 
