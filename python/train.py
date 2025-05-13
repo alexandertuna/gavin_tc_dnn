@@ -6,12 +6,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import time
 import pickle
+
+plt.rcParams.update({'font.size': 16})
 
 SEED = 42
 torch.manual_seed(SEED)
@@ -25,7 +28,8 @@ from ml import SiameseDataset, EmbeddingNet, SiameseNet, ContrastiveLoss
 
 def main():
 
-    file_path = "../data/LSTNtuple.root"
+    # file_path = "../data/LSTNtuple.root"
+    file_path = "../data/LSTNtuple.cutNA.root"
     branches, features, sim_indices, X_left, X_right, y = preprocess.preprocess_data(file_path)
 
     pdf_path = "train.pdf"
@@ -36,12 +40,57 @@ def main():
         X_left, X_right, y, test_size=0.2, random_state=42
     )
 
+    # quick plot of types of pairs
+    dup_y = y_train == 0
+    dup_n = y_train == 1
+    types = {}
+    type_l_train = X_left_train[:, 3] * 2 + 6 - 4
+    type_r_train = X_right_train[:, 3] * 2 + 6 - 4
+    types["l_train_dup_y"] = type_l_train[dup_y]
+    types["l_train_dup_n"] = type_l_train[dup_n]
+    types["r_train_dup_y"] = type_r_train[dup_y]
+    types["r_train_dup_n"] = type_r_train[dup_n]
+
+    for subset in [
+        "train_dup_y",
+        "train_dup_n",
+    ]:
+        fig, ax = plt.subplots(figsize=(8, 8))
+        hist, _, _, im = ax.hist2d(types[f"l_{subset}"],
+                                   types[f"r_{subset}"],
+                                   # bins=(np.arange(0, 4, 0.1), np.arange(0, 4, 0.1)),
+                                   cmin=0.5,
+                                   cmap='gist_rainbow',
+                                   )
+
+        type_labels = ["T5", "PT3", "PT5", "PLS"]
+        # type_types = [4, 5, 7, 8]
+        type_types = [0, 1, 3, 4]
+        ax.set_xticks(type_types, labels=type_labels, rotation=45, ha="right", rotation_mode="anchor")
+        ax.set_yticks(type_types, labels=type_labels)
+        for i in type_types:
+            for j in type_types:
+                pass # ax.text(j, i, hist[j, i], ha="center", va="center", color="w")
+
+        title_noun = "Duplicates" if "dup_y" in subset else "Non-duplicates"
+        ax.set_xlabel("Left Track Type")
+        ax.set_ylabel("Right Track Type")
+        ax.set_title(f"Left vs Right Track Type ({title_noun})")
+        ax.grid(True)
+
+        fig.colorbar(im, ax=ax, label="Pairs")
+        fig.subplots_adjust(left=0.15, right=0.90, top=0.95, bottom=0.13)
+        pdf.savefig()
+        plt.close()
+
+
     batch_size = 128
     train_dataset = SiameseDataset(X_left_train, X_right_train, y_train)
     test_dataset = SiameseDataset(X_left_test, X_right_test, y_test)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    test_dataset_deltaR = make_deltaR(X_left_test, X_right_test)
 
     input_dim = 4       # four input features
     embedding_dim = 4   # embedding size
@@ -115,8 +164,6 @@ def main():
 
     all_distances = np.concatenate(all_distances).flatten()
     all_labels = np.concatenate(all_labels).flatten()
-
-    print("Test distances range: ", all_distances.min(), all_distances.max())
 
     # For a range of thresholds, count duplicate pairs (true positives) and non-duplicate pairs (false positives)
     thresholds = np.linspace(all_distances.min(), all_distances.max(), 100)
@@ -208,6 +255,31 @@ def main():
     plt.close()
     # plt.show()
 
+    # ----------------------------
+    # Plot 1b: ROC curves
+    # ----------------------------
+    fpr_nn, tpr_nn, thresholds_nn = roc_curve(all_labels, all_distances)
+    fpr_dr, tpr_dr, thresholds_dr = roc_curve(all_labels, test_dataset_deltaR)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    # plt.figure(figsize=(8, 8))
+    ax.plot(fpr_nn, tpr_nn, label='Embedding')
+    ax.plot(fpr_dr, tpr_dr, label=r'$\Delta$R')
+    # ax.plot([0, 1], [0, 1], 'k--', label='Random Guessing')
+    ax.set_xlabel('Duplicate efficiency (False Positive Rate)')
+    ax.set_ylabel('Non-duplicate efficiency (True Positive Rate)')
+    ax.set_title('ROC Curves')
+    ax.semilogx()
+    # ax.xlim([0.0, 1.0])
+    ax.set_ylim([0.99, 1.0])
+    ax.set_xlim([1e-4, 1])
+    ax.legend()
+    ax.grid(True)
+    ax.tick_params(right=True)
+    ax.tick_params(top=True, which="minor")
+    fig.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.13)
+    pdf.savefig()
+    plt.close()
+    # plt.show()
 
     # ----------------------------
     # Plot 2: Embedding Space Visualization
@@ -497,6 +569,18 @@ def main():
     pdf.close()
 
 
+def make_deltaR(x_left, x_right):
+    eta_l = x_left[:, 1] * 4.0
+    phi_l = x_left[:, 2] * 3.1415926
+    eta_r = x_right[:, 1] * 4.0
+    phi_r = x_right[:, 2] * 3.1415926
+    delta_eta = eta_l - eta_r
+    delta_phi = dangle(phi_l, phi_r)
+    deltaR = np.sqrt(delta_eta**2 + delta_phi**2)
+    return deltaR
+
+def dangle(x, y):
+    return np.min([(2 * np.pi) - np.abs(x - y), np.abs(x - y)], axis=0)
 
 def print_formatted_weights_biases(weights, biases, layer_name):
     # Print biases
