@@ -19,18 +19,18 @@ BRANCHES_LIST = [
 def preprocess_data(file_path: str):
     branches = load_root_file(file_path, BRANCHES_LIST, True)
 
-    print("Printing basic branch info:")
-    print(len(branches['tc_matched_simIdx']))
-    print(branches['tc_matched_simIdx'][0])
-    print(branches['tc_matched_simIdx'][1])
-    print(branches['tc_matched_simIdx'][2])
-    print(len(branches['tc_matched_simIdx'][0]))
-    print(len(branches['tc_matched_simIdx'][1]))
-    print(len(branches['tc_matched_simIdx'][2]))
-    print(branches["tc_pt"][0])
-    print(len(branches["tc_pt"][0]))
-    print(len(branches["tc_pt"][1]))
-    print(len(branches["tc_pt"][2]))
+    # print("Printing basic branch info:")
+    # print(len(branches['tc_matched_simIdx']))
+    # print(branches['tc_matched_simIdx'][0])
+    # print(branches['tc_matched_simIdx'][1])
+    # print(branches['tc_matched_simIdx'][2])
+    # print(len(branches['tc_matched_simIdx'][0]))
+    # print(len(branches['tc_matched_simIdx'][1]))
+    # print(len(branches['tc_matched_simIdx'][2]))
+    # print(branches["tc_pt"][0])
+    # print(len(branches["tc_pt"][0]))
+    # print(len(branches["tc_pt"][1]))
+    # print(len(branches["tc_pt"][2]))
 
     print("")
     print("Checking how many sim hits are matched to tracks:")
@@ -106,6 +106,11 @@ def extract_sim_indices(sim_idx_branch):
             else:
                 event_indices.append(None)
         extracted.append(event_indices)
+    # print("*"*30)
+    # print(len(extracted[0]))
+    # print(len(extracted[1]))
+    # print(len(extracted[2]))
+    # print("*"*30)
     return extracted
 
 
