@@ -174,8 +174,12 @@ cython_debug/
 .pypirc
 
 # Misc
+.DS_Store
 *.pkl
+*.npy
+*.npz
 *.bak
 *.pdf
+*.gif
 *.root
 *~
