@@ -28,9 +28,10 @@ from ml import SiameseDataset, EmbeddingNet, SiameseNet, ContrastiveLoss
 
 def main():
 
-    # file_path = "../data/LSTNtuple.root"
-    file_path = "../data/LSTNtuple.cutNA.root"
+    file_path = "../data/LSTNtuple.root"
+    # file_path = "../data/LSTNtuple.cutNA.root"
     branches, features, sim_indices, X_left, X_right, y = preprocess.preprocess_data(file_path)
+    return 
 
     pdf_path = "train.pdf"
     pdf = PdfPages(pdf_path)
@@ -103,7 +104,7 @@ def main():
     # ------------------------------------------------------------
     # 5. Train the Model
     # ------------------------------------------------------------
-    num_epochs = 300 # 300
+    num_epochs = 10 # 300
     train_losses = []
     val_losses = []
     train_losses_similar = []
@@ -147,6 +148,12 @@ def main():
         val_losses.append(epoch_val_loss)
         val_losses_similar.append(running_val_loss_similar / len(test_loader.dataset))
         val_losses_dissimilar.append(running_val_loss_dissimilar / len(test_loader.dataset))
+
+        # save intermediate ROC
+        # if epoch > 0: # and (epoch % 10 == 0 or epoch == num_epochs - 1):
+        #     print("Saving ROC curves for epoch", epoch)
+        #     make_and_save_roc(model, train_loader, f"rocs/roc_train_epoch{epoch:04}.npz")
+        #     make_and_save_roc(model, test_loader, f"rocs/roc_test_epoch{epoch:04}.npz")
 
         print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {epoch_loss:.4f} - Val Loss: {epoch_val_loss:.4f} - now {time.strftime("%Y_%m_%d_%Hh%Mm%Ss")}")
 
@@ -258,20 +265,21 @@ def main():
     # ----------------------------
     # Plot 1b: ROC curves
     # ----------------------------
-    fpr_nn, tpr_nn, thresholds_nn = roc_curve(all_labels, all_distances)
-    fpr_dr, tpr_dr, thresholds_dr = roc_curve(all_labels, test_dataset_deltaR)
+    fpr_nn, tpr_nn, _ = roc_curve(all_labels, all_distances)
+    fpr_dr, tpr_dr, _ = roc_curve(all_labels, test_dataset_deltaR)
+    np.savez("rocs/roc_deltaR.npz", fpr=fpr_dr, tpr=tpr_dr)
+
     fig, ax = plt.subplots(figsize=(8, 8))
-    # plt.figure(figsize=(8, 8))
     ax.plot(fpr_nn, tpr_nn, label='Embedding')
     ax.plot(fpr_dr, tpr_dr, label=r'$\Delta$R')
-    # ax.plot([0, 1], [0, 1], 'k--', label='Random Guessing')
     ax.set_xlabel('Duplicate efficiency (False Positive Rate)')
     ax.set_ylabel('Non-duplicate efficiency (True Positive Rate)')
     ax.set_title('ROC Curves')
     ax.semilogx()
-    # ax.xlim([0.0, 1.0])
-    ax.set_ylim([0.99, 1.0])
-    ax.set_xlim([1e-4, 1])
+    ax.set_ylim([0.96, 1.0])
+    ax.set_xlim([1e-5, 1])
+    # ax.set_ylim([0.99, 1.0])
+    # ax.set_xlim([1e-4, 1])
     ax.legend()
     ax.grid(True)
     ax.tick_params(right=True)
@@ -581,6 +589,20 @@ def make_deltaR(x_left, x_right):
 
 def dangle(x, y):
     return np.min([(2 * np.pi) - np.abs(x - y), np.abs(x - y)], axis=0)
+
+def make_and_save_roc(model, data_loader, filename):
+    model.eval()
+    all_distances = []
+    all_labels = []
+    with torch.no_grad():
+        for batch_left, batch_right, batch_label in data_loader:
+            distances = model(batch_left, batch_right)
+            all_distances.append(distances.cpu().numpy())
+            all_labels.append(batch_label.cpu().numpy())
+    all_distances = np.concatenate(all_distances).flatten()
+    all_labels = np.concatenate(all_labels).flatten()
+    fpr, tpr, _ = roc_curve(all_labels, all_distances)
+    np.savez(filename, fpr=fpr, tpr=tpr)
 
 def print_formatted_weights_biases(weights, biases, layer_name):
     # Print biases
