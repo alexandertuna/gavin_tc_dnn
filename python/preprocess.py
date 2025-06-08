@@ -501,7 +501,7 @@ class Preprocessor:
         with ProcessPoolExecutor() as pool:
             futures = [
                 pool.submit(
-                    _pairs_pLS_T5_single, ev,
+                    _pairs_pLS_T5_single_vectorized, ev,
                     pLS_features_per_event[ev],
                     pLS_sim_indices_per_event[ev],
                     features_per_event[ev],
@@ -662,6 +662,71 @@ def create_t5_pairs_balanced_parallel(features_per_event,
 
     print(f"<<< done in {time.time() - t0:.1f}s  | sim {len(sim_L)}  dis {len(dis_L)}  total {len(y)}")
     return X_left, X_right, y, disp_L, disp_R
+
+
+def _pairs_pLS_T5_single_vectorized(evt_idx,
+                                    F_pLS, S_pLS,
+                                    F_T5,  S_T5, D_T5,
+                                    max_sim, max_dis,
+                                    invalid_sim):
+    """
+    Build similar / dissimilar pLS-T5 pairs for a single event,
+    printing per-event summary.
+    """
+    n_p, n_t = F_pLS.shape[0], F_T5.shape[0]
+    sim_pairs, dis_pairs = [], []
+
+    # if either collection is empty, report zeros and bail
+    if n_p == 0 or n_t == 0:
+        print(f"[evt {evt_idx:4d}]  pLSs={n_p:5d}  T5s={n_t:5d}  sim={0:4d}  dis={0:4d}")
+        return evt_idx, []
+
+    # un-normalize eta and compute phi angles
+    eta_p = F_pLS[:,0] * 4.0
+    phi_p = np.arctan2(F_pLS[:,3], F_pLS[:,2])
+    eta_t = F_T5[:,0] * ETA_MAX
+    phi_t = np.arctan2(F_T5[:,2], F_T5[:,1])
+
+    # make all possible pairs (i, j)
+    idx_p, idx_t = np.indices( (n_p, n_t) )
+    idx_p, idx_t = idx_p.flatten(), idx_t.flatten()
+
+    # calculate angles
+    dphi = (phi_p[idx_p] - phi_t[idx_t] + np.pi) % (2 * np.pi) - np.pi
+    dr2 = (eta_p[idx_p] - eta_t[idx_t])**2 + dphi**2
+    dr2_valid = (dr2 < DELTA_R2_CUT_PLS_T5)
+
+    # compare sim indices
+    simidx_p = S_pLS[idx_p]
+    simidx_t = S_T5[idx_t]
+    sim_idx_same = (simidx_p == simidx_t)
+
+    # create masks for similar and dissimilar pairs
+    sim_mask = dr2_valid & sim_idx_same & (simidx_p != invalid_sim)
+    dis_mask = dr2_valid & ~sim_idx_same
+
+    # get the pairs
+    sim_pairs = np.column_stack((idx_p[sim_mask], idx_t[sim_mask]))
+    dis_pairs = np.column_stack((idx_p[dis_mask], idx_t[dis_mask]))
+
+    # down-sample
+    if len(sim_pairs) > max_sim:
+        sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
+    if len(dis_pairs) > max_dis:
+        dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
+
+    # print per-event summary
+    print(f"[evt {evt_idx:4d}]  pLSs={n_p:5d}  T5s={n_t:5d}  "
+          f"sim={len(sim_pairs):4d}  dis={len(dis_pairs):4d}")
+
+    # pack into (feature, feature, label, displaced_flag)
+    packed = []
+    for i,j in sim_pairs:
+        packed.append((F_pLS[i], F_T5[j], 0, D_T5[j] > DISP_VXY_CUT))
+    for i,j in dis_pairs:
+        packed.append((F_pLS[i], F_T5[j], 1, D_T5[j] > DISP_VXY_CUT))
+
+    return evt_idx, packed
 
 
 def _pairs_pLS_T5_single(evt_idx,
