@@ -4,6 +4,7 @@ import uproot
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -30,6 +31,14 @@ DISP_VXY_CUT       = 0.1
 INVALID_SIM_IDX    = -1
 MAX_SIM            = 1000
 MAX_DIS            = 1000
+
+# intermediate data
+LOAD_FEATURES = True
+FEATURES_T5 = Path("features_t5.pkl")
+FEATURES_PLS = Path("features_pls.pkl")
+LOAD_PAIRS = False
+PAIRS_T5T5 = Path("pairs_t5t5.pkl")
+PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 
 
 def load_root_file(file_path, branches=None, print_branches=False):
@@ -106,15 +115,100 @@ def delta_phi(phi1, phi2):
         delta += 2 * np.pi
     return delta
 
+def load_t5_features():
+    with open(FEATURES_T5, "rb") as fi:
+        data = pickle.load(fi)
+    return [
+        data["features_per_event"],
+        data["displaced_per_event"],
+        data["sim_indices_per_event"],
+    ]
+
+def load_pls_features():
+    with open(FEATURES_PLS, "rb") as fi:
+        data = pickle.load(fi)
+    return [
+        data["pLS_features_per_event"],
+        data["pLS_sim_indices_per_event"],
+    ]
+
+def load_t5_t5_pairs():
+    with open(PAIRS_T5T5, "rb") as fi:
+        data = pickle.load(fi)
+    return [
+        data["X_left_train"],
+        data["X_left_test"],
+        data["X_right_train"],
+        data["X_right_test"],
+        data["y_t5_train"],
+        data["y_t5_test"],
+        data["w_t5_train"],
+        data["w_t5_test"],
+    ]
+
+def load_t5_pls_pairs():
+    with open(PAIRS_T5PLS, "rb") as fi:
+        data = pickle.load(fi)
+    return [
+        data["X_pls_train"],
+        data["X_pls_test"],
+        data["X_t5raw_train"],
+        data["X_t5raw_test"],
+        data["y_pls_train"],
+        data["y_pls_test"],
+        data["w_pls_train"],
+        data["w_pls_test"],
+    ]
 
 class Preprocessor:
+
     def __init__(self, root_path):
-        self.load_root_file(root_path)
+
+        branches = self.load_root_file(root_path) if not LOAD_FEATURES else None
+
+        print("Getting T5 features")
+        [features_per_event,
+         displaced_per_event,
+         sim_indices_per_event] = self.get_t5_features(branches) if not LOAD_FEATURES else load_t5_features()
+
+        print("Getting PLS features")
+        [pLS_features_per_event,
+         pLS_sim_indices_per_event] = self.get_pls_features(branches) if not LOAD_FEATURES else load_pls_features()
+
+        [self.X_left_train,
+         self.X_left_test,
+         self.X_right_train,
+         self.X_right_test,
+         self.y_t5_train,
+         self.y_t5_test,
+         self.w_t5_train,
+         self.w_t5_test,
+         ] = self.get_t5_pairs(features_per_event,
+                               displaced_per_event,
+                               sim_indices_per_event) if not LOAD_PAIRS else load_t5_t5_pairs()
+
+        [self.X_pls_train,
+         self.X_pls_test,
+         self.X_t5raw_train,
+         self.X_t5raw_test,
+         self.y_pls_train,
+         self.y_pls_test,
+         self.w_pls_train,
+         self.w_pls_test,
+         ] = self.get_t5_pls_pairs(pLS_features_per_event,
+                                   pLS_sim_indices_per_event,
+                                   features_per_event,
+                                   displaced_per_event,
+                                   sim_indices_per_event) if not LOAD_PAIRS else load_t5_pls_pairs()
+
 
     def load_root_file(self, root_path):
 
         print("Loading ROOT file:", root_path)
-        branches = load_root_file(root_path, branches_list, print_branches=True)
+        return load_root_file(root_path, branches_list, print_branches=True)
+
+
+    def get_t5_features(self, branches):
 
         z_max = np.max([np.max(event) for event in branches[f't5_t3_4_z']])
         r_max = np.max([np.max(event) for event in branches[f't5_t3_4_r']])
@@ -245,19 +339,23 @@ class Preprocessor:
 
         # ------------------------------------------------------------------
 
-        print("Writing to 0.pkl!")
-        with open("0.pkl", "wb") as fi:
+        print(f"Writing to {FEATURES_T5}")
+        with open(FEATURES_T5, "wb") as fi:
             pickle.dump({
                 "features_per_event": features_per_event,
                 "displaced_per_event": displaced_per_event,
                 "sim_indices_per_event": sim_indices_per_event,
             }, fi)
 
-        # ------------------------------------------------------------------
+        return features_per_event, displaced_per_event, sim_indices_per_event
+
+
+    def get_pls_features(self, branches):
 
         KEEP_FRAC_PLS = 0.40
         print(f"\nBuilding pLS features …")
 
+        n_events = np.shape(branches['pLS_eta'])[0]
         pLS_features_per_event    = []
         pLS_eta_per_event         = []
         pLS_sim_indices_per_event = []
@@ -321,15 +419,18 @@ class Preprocessor:
 
         # ----------------------------------------------------------------------------
 
-        print("Writing to 1.pkl!")
-        with open("1.pkl", "wb") as fi:
+        print(f"Writing to {FEATURES_PLS}")
+        with open(FEATURES_PLS, "wb") as fi:
             pickle.dump({
                 "pLS_features_per_event": pLS_features_per_event,
                 "pLS_sim_indices_per_event": pLS_sim_indices_per_event,
             }, fi)
 
 
-        # ----------------------------------------------------------------------------
+        return pLS_features_per_event, pLS_sim_indices_per_event
+
+
+    def get_t5_pairs(self, features_per_event, displaced_per_event, sim_indices_per_event):
 
         # invoke
         X_left, X_right, y, disp_L, disp_R = create_t5_pairs_balanced_parallel(
@@ -366,7 +467,29 @@ class Preprocessor:
         pct_disp = np.mean(disp_L | disp_R) * 100
         print(f"{pct_disp:.2f}% of all pairs involve a displaced T5")
 
-        # ----------------------------------------------------------------------------
+        # write results to file
+        print(f"Writing to {PAIRS_T5T5}")
+        with open(PAIRS_T5T5, "wb") as fi:
+            pickle.dump({
+                "X_left_train": X_left_train,
+                "X_left_test": X_left_test,
+                "X_right_train": X_right_train,
+                "X_right_test": X_right_test,
+                "y_t5_train": y_t5_train,
+                "y_t5_test": y_t5_test,
+                "w_t5_train": w_t5_train,
+                "w_t5_test": w_t5_test,
+            }, fi)
+
+        return [
+            X_left_train, X_left_test,
+            X_right_train, X_right_test,
+            y_t5_train, y_t5_test,
+            w_t5_train, w_t5_test,
+        ]
+
+
+    def get_t5_pls_pairs(self, pLS_features_per_event, pLS_sim_indices_per_event, features_per_event, displaced_per_event, sim_indices_per_event):
 
         # now drive over all events in parallel, with a global timer & totals
         print(f"\n>>> Building pLS-T5 pairs (ΔR² < {DELTA_R2_CUT_PLS_T5}) …")
@@ -387,6 +510,7 @@ class Preprocessor:
                     MAX_SIM, MAX_DIS, INVALID_SIM_IDX
                 )
                 for ev in range(len(features_per_event))
+                # for ev in range(50)
             ]
             for fut in as_completed(futures):
                 _, packed = fut.result()
@@ -420,6 +544,26 @@ class Preprocessor:
         pct_disp_pls = disp_flag.mean() * 100.0
         print(f"pLS-T5 pairs → train {len(y_pls_train)}  test {len(y_pls_test)}")
         print(f"{pct_disp_pls:.2f}% of pLS-T5 pairs involve a displaced T5")
+
+        print(f"Writing to {PAIRS_T5PLS}")
+        with open(PAIRS_T5PLS, "wb") as fi:
+            pickle.dump({
+                "X_pls_train": X_pls_train,
+                "X_pls_test": X_pls_test,
+                "X_t5raw_train": X_t5raw_train,
+                "X_t5raw_test": X_t5raw_test,
+                "y_pls_train": y_pls_train,
+                "y_pls_test": y_pls_test,
+                "w_pls_train": w_pls_train,
+                "w_pls_test": w_pls_test
+        }, fi)
+
+        return [
+            X_pls_train, X_pls_test,
+            X_t5raw_train, X_t5raw_test,
+            y_pls_train, y_pls_test,
+            w_pls_train, w_pls_test,
+        ]
 
 
 
@@ -463,13 +607,13 @@ def _pairs_single_event(evt_idx,
 
 
 def create_t5_pairs_balanced_parallel(features_per_event,
-                                    sim_indices_per_event,
-                                    displaced_per_event,
-                                    *,
-                                    max_similar_pairs_per_event=100,
-                                    max_dissimilar_pairs_per_event=450,
-                                    invalid_sim_idx=-1,
-                                    n_workers=None):
+                                      sim_indices_per_event,
+                                      displaced_per_event,
+                                      *,
+                                      max_similar_pairs_per_event=100,
+                                      max_dissimilar_pairs_per_event=450,
+                                      invalid_sim_idx=-1,
+                                      n_workers=None):
     t0 = time.time()
     print("\n>>> Pair generation  (ΔR² < 0.02)  –  parallel mode")
 
@@ -482,6 +626,7 @@ def create_t5_pairs_balanced_parallel(features_per_event,
         max_dissimilar_pairs_per_event,
         invalid_sim_idx)
         for evt_idx in range(len(features_per_event))
+        # for evt_idx in range(50)
     ]
 
     sim_L, sim_R, sim_disp = [], [], []
