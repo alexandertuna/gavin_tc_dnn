@@ -36,7 +36,7 @@ MAX_DIS            = 1000
 LOAD_FEATURES = True
 FEATURES_T5 = Path("features_t5.pkl")
 FEATURES_PLS = Path("features_pls.pkl")
-LOAD_PAIRS = False
+LOAD_PAIRS = True
 PAIRS_T5T5 = Path("pairs_t5t5.pkl")
 PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 
@@ -206,6 +206,36 @@ class Preprocessor:
 
         print("Loading ROOT file:", root_path)
         return load_root_file(root_path, branches_list, print_branches=True)
+
+    def speed_test(self):
+        [features_per_event,
+         displaced_per_event,
+         sim_indices_per_event] = load_t5_features()
+
+        evt_idxs = range(len(features_per_event))
+        for evt_idx in range(2): # evt_idxs:
+            max_per_event = 1e6
+            invalid_sim_idx = -1
+            work_args = (evt_idx,
+                        features_per_event[evt_idx],
+                        sim_indices_per_event[evt_idx],
+                        displaced_per_event[evt_idx],
+                        max_per_event,
+                        max_per_event,
+                        invalid_sim_idx,
+                        )
+            evt_idx, sim_pairs, dis_pairs = _pairs_single_event(*work_args)
+            evt_idx, sim_pairs_vec, dis_pairs_vec = _pairs_single_event_vectorized(*work_args)
+            sim_pairs_vec = [(i, j) for i, j in sim_pairs_vec] # de-numpify
+            dis_pairs_vec = [(i, j) for i, j in dis_pairs_vec]
+            sim_equal = (sim_pairs == sim_pairs_vec)
+            dis_equal = (dis_pairs == dis_pairs_vec)
+            sim_equiv = sorted(sim_pairs) == sorted(sim_pairs_vec)
+            dis_equiv = sorted(dis_pairs) == sorted(dis_pairs_vec)
+            print(f"[evt {evt_idx:4d}]  sim. pairs equal: {sim_equal}. Equivalent: {sim_equiv}")
+            print(f"[evt {evt_idx:4d}]  dis. pairs equal: {dis_equal}. Equivalent: {dis_equiv}")
+            print("")
+
 
 
     def get_t5_features(self, branches):
@@ -566,11 +596,72 @@ class Preprocessor:
         ]
 
 
-
 def _pairs_single_event(evt_idx,
                         F, S, D,
                         max_sim, max_dis,
                         invalid_sim):
+    """
+    Worker run in a separate process.
+    Returns two Python lists with the selected (i,j) indices per event.
+    """
+    t0 = time.time()
+    n = F.shape[0]
+    if n < 2:
+        return evt_idx, [], []
+
+    eta1 = F[:, 0] * ETA_MAX
+    phi1 = np.arctan2(F[:, 2], F[:, 1])
+
+    sim_pairs, dis_pairs = [], []
+
+    # similar pairs (same sim-index)
+    buckets = {}
+    for idx, s in enumerate(S):
+        if s != invalid_sim:
+            buckets.setdefault(s, []).append(idx)
+
+    for lst in buckets.values():
+        if len(lst) < 2:
+            continue
+        for a in range(len(lst) - 1):
+            i = lst[a]
+            for b in range(a + 1, len(lst)):
+                j = lst[b]
+                dphi = delta_phi(phi1[i], phi1[j])
+                dr2  = (eta1[i] - eta1[j])**2 + dphi**2
+                if dr2 < DELTA_R2_CUT:
+                    sim_pairs.append((i, j))
+
+    # dissimilar pairs (different sim)
+    for i in range(n - 1):
+        si, ei, pi = S[i], eta1[i], phi1[i]
+        for j in range(i + 1, n):
+            # skip fake-fake pairs
+            if si == invalid_sim and S[j] == invalid_sim:
+                continue
+            if (si == S[j]) and si != invalid_sim:
+                continue
+            dphi = delta_phi(pi, phi1[j])
+            dr2  = (ei - eta1[j])**2 + dphi**2
+            if dr2 < DELTA_R2_CUT:
+                dis_pairs.append((i, j))
+
+    # down-sample
+    if len(sim_pairs) > max_sim:
+        sim_pairs = random.sample(sim_pairs, max_sim)
+    if len(dis_pairs) > max_dis:
+        dis_pairs = random.sample(dis_pairs, max_dis)
+
+    dt = time.time() - t0
+    print(f"[evt {evt_idx:4d}]  T5s={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds")
+    return evt_idx, sim_pairs, dis_pairs
+
+
+def _pairs_single_event_vectorized(evt_idx,
+                        F, S, D,
+                        max_sim, max_dis,
+                        invalid_sim):
+    t0 = time.time()
     n = F.shape[0]
     eta1, phi1 = F[:, 0] * ETA_MAX, np.arctan2(F[:, 2], F[:, 1])
 
@@ -602,7 +693,8 @@ def _pairs_single_event(evt_idx,
     if len(dis_pairs) > max_dis:
         dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
 
-    print(f"[evt {evt_idx:4d}]  T5s={n:5d}  sim={len(sim_pairs)}  dis={len(dis_pairs)}")
+    dt = time.time() - t0
+    print(f"[evt {evt_idx:4d}]  T5s={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds vectorized")
     return evt_idx, sim_pairs, dis_pairs
 
 
@@ -633,7 +725,7 @@ def create_t5_pairs_balanced_parallel(features_per_event,
     dis_L, dis_R, dis_disp = [], [], []
 
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
-        futures = [pool.submit(_pairs_single_event, *args) for args in work_args]
+        futures = [pool.submit(_pairs_single_event_vectorized, *args) for args in work_args]
         for fut in as_completed(futures):
             evt_idx, sim_pairs_evt, dis_pairs_evt = fut.result()
             F = features_per_event[evt_idx]
