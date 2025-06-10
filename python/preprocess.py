@@ -760,10 +760,8 @@ def _pairs_single_event_vectorized(evt_idx,
 
     # down-sample
     if len(sim_pairs) > max_sim:
-        # sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
         sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
-        # dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
         dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
 
     dt = time.time() - t0
@@ -877,10 +875,8 @@ def _pairs_pLS_T5_single_vectorized(evt_idx,
 
     # down-sample
     if len(sim_pairs) > max_sim:
-        # sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
         sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
-        # dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
         dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
 
     # print per-event summary
