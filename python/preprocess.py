@@ -208,14 +208,24 @@ class Preprocessor:
         return load_root_file(root_path, branches_list, print_branches=True)
 
     def speed_test(self):
+
+        if not LOAD_FEATURES:
+            raise ValueError("LOAD_FEATURES must be True to run the speed test")
+
+        # load T5 and pLS features
         [features_per_event,
          displaced_per_event,
          sim_indices_per_event] = load_t5_features()
 
-        evt_idxs = range(len(features_per_event))
-        for evt_idx in range(2): # evt_idxs:
-            max_per_event = 1e6
-            invalid_sim_idx = -1
+        [pLS_features_per_event,
+         pLS_sim_indices_per_event] = load_pls_features()
+
+        evts = range(2)
+        max_per_event = 1000 # 1e6
+        invalid_sim_idx = -1
+
+        # test T5-T5 pairs
+        for evt_idx in evts:
             work_args = (evt_idx,
                         features_per_event[evt_idx],
                         sim_indices_per_event[evt_idx],
@@ -224,8 +234,14 @@ class Preprocessor:
                         max_per_event,
                         invalid_sim_idx,
                         )
+
+            # run both versions
+            random.seed(42)
             evt_idx, sim_pairs, dis_pairs = _pairs_single_event(*work_args)
+            random.seed(42)
             evt_idx, sim_pairs_vec, dis_pairs_vec = _pairs_single_event_vectorized(*work_args)
+
+            # compare
             sim_pairs_vec = [(i, j) for i, j in sim_pairs_vec] # de-numpify
             dis_pairs_vec = [(i, j) for i, j in dis_pairs_vec]
             sim_equal = (sim_pairs == sim_pairs_vec)
@@ -235,6 +251,60 @@ class Preprocessor:
             print(f"[evt {evt_idx:4d}]  sim. pairs equal: {sim_equal}. Equivalent: {sim_equiv}")
             print(f"[evt {evt_idx:4d}]  dis. pairs equal: {dis_equal}. Equivalent: {dis_equiv}")
             print("")
+
+        # test pLS-T5 pairs
+        for evt_idx in evts:
+            works_args = (
+                evt_idx,
+                pLS_features_per_event[evt_idx],
+                pLS_sim_indices_per_event[evt_idx],
+                features_per_event[evt_idx],
+                sim_indices_per_event[evt_idx],
+                displaced_per_event[evt_idx],
+                max_per_event,
+                max_per_event,
+                invalid_sim_idx,
+            )
+
+            # run both versions
+            random.seed(42)
+            _, packed = _pairs_pLS_T5_single(*works_args)
+            random.seed(42)
+            _, packed_vec = _pairs_pLS_T5_single_vectorized(*works_args)
+
+            # compare
+            def tup_equal(a, b):
+                return (np.array_equal(a[0], b[0]) and
+                        np.array_equal(a[1], b[1]) and
+                        a[2] == b[2] and
+                        np.array_equal(a[3], b[3]))
+            
+            def packed_equal(a, b):
+                if len(a) != len(b):
+                    return False
+                for (a_i, b_i) in zip(a, b):
+                    if not tup_equal(a_i, b_i):
+                        return False
+                return True
+
+            equal = packed_equal(packed, packed_vec)
+            print(f"[evt {evt_idx:4d}]  pLS-T5 pairs equal: {equal}")
+            print("")
+
+
+            # futures = [
+            #     pool.submit(
+            #         _pairs_pLS_T5_single_vectorized, ev,
+            #         pLS_features_per_event[ev],
+            #         pLS_sim_indices_per_event[ev],
+            #         features_per_event[ev],
+            #         sim_indices_per_event[ev],
+            #         displaced_per_event[ev],
+            #         MAX_SIM, MAX_DIS, INVALID_SIM_IDX
+            #     )
+            #     for ev in range(len(features_per_event))
+            #     # for ev in range(50)
+            # ]
 
 
 
@@ -658,14 +728,15 @@ def _pairs_single_event(evt_idx,
 
 
 def _pairs_single_event_vectorized(evt_idx,
-                        F, S, D,
-                        max_sim, max_dis,
-                        invalid_sim):
+                                   F, S, D,
+                                   max_sim, max_dis,
+                                   invalid_sim):
     t0 = time.time()
     n = F.shape[0]
     eta1, phi1 = F[:, 0] * ETA_MAX, np.arctan2(F[:, 2], F[:, 1])
 
-    idx_l, idx_r = np.triu_indices(n, k=1) # k=1 ensures idx_l < idx_r
+    # upper-triangle (non-diagonal) indices
+    idx_l, idx_r = np.triu_indices(n, k=1)
     idxs_triu = np.stack((idx_l, idx_r), axis=-1)
 
     simidx_l = S[idx_l]
@@ -689,9 +760,11 @@ def _pairs_single_event_vectorized(evt_idx,
 
     # down-sample
     if len(sim_pairs) > max_sim:
-        sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
+        # sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
+        sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
-        dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
+        # dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
+        dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
 
     dt = time.time() - t0
     print(f"[evt {evt_idx:4d}]  T5s={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds vectorized")
@@ -765,6 +838,7 @@ def _pairs_pLS_T5_single_vectorized(evt_idx,
     Build similar / dissimilar pLS-T5 pairs for a single event,
     printing per-event summary.
     """
+    t0 = time.time()
     n_p, n_t = F_pLS.shape[0], F_T5.shape[0]
     sim_pairs, dis_pairs = [], []
 
@@ -803,13 +877,17 @@ def _pairs_pLS_T5_single_vectorized(evt_idx,
 
     # down-sample
     if len(sim_pairs) > max_sim:
-        sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
+        # sim_pairs = sim_pairs[np.random.choice(len(sim_pairs), max_sim, replace=False)]
+        sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
-        dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
+        # dis_pairs = dis_pairs[np.random.choice(len(dis_pairs), max_dis, replace=False)]
+        dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
 
     # print per-event summary
+    dt = time.time() - t0
     print(f"[evt {evt_idx:4d}]  pLSs={n_p:5d}  T5s={n_t:5d}  "
-          f"sim={len(sim_pairs):4d}  dis={len(dis_pairs):4d}")
+          f"sim. pairs={len(sim_pairs):4d}  dis. pairs={len(dis_pairs):4d} | {dt:.1f} seconds vectorized")
+
 
     # pack into (feature, feature, label, displaced_flag)
     packed = []
@@ -830,6 +908,7 @@ def _pairs_pLS_T5_single(evt_idx,
     Build similar / dissimilar pLS-T5 pairs for a single event,
     printing per-event summary.
     """
+    t0 = time.time()
     n_p, n_t = F_pLS.shape[0], F_T5.shape[0]
     sim_pairs, dis_pairs = [], []
 
@@ -875,8 +954,9 @@ def _pairs_pLS_T5_single(evt_idx,
         dis_pairs = random.sample(dis_pairs, max_dis)
 
     # print per-event summary
+    dt = time.time() - t0
     print(f"[evt {evt_idx:4d}]  pLSs={n_p:5d}  T5s={n_t:5d}  "
-          f"sim={len(sim_pairs):4d}  dis={len(dis_pairs):4d}")
+          f"sim. pairs={len(sim_pairs):4d}  dis. pairs={len(dis_pairs):4d} | {dt:.1f} seconds")
 
     # pack into (feature, feature, label, displaced_flag)
     packed = []
