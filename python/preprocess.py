@@ -220,8 +220,8 @@ class Preprocessor:
         [pLS_features_per_event,
          pLS_sim_indices_per_event] = load_pls_features()
 
-        evts = range(2)
-        max_per_event = 1000 # 1e6
+        evts = range(500)
+        max_per_event = 1e6 # 1000 # 1e6
         invalid_sim_idx = -1
 
         # test T5-T5 pairs
