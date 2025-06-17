@@ -175,6 +175,7 @@ class Preprocessor:
         [pLS_features_per_event,
          pLS_sim_indices_per_event] = self.get_pls_features(branches) if not LOAD_FEATURES else load_pls_features()
 
+        print("Getting T5-T5 pairs")
         [self.X_left_train,
          self.X_left_test,
          self.X_right_train,
@@ -187,6 +188,7 @@ class Preprocessor:
                                displaced_per_event,
                                sim_indices_per_event) if not LOAD_PAIRS else load_t5_t5_pairs()
 
+        print("Getting PLS-T5 pairs")
         [self.X_pls_train,
          self.X_pls_test,
          self.X_t5raw_train,
