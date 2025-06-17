@@ -29,6 +29,7 @@ class Trainer:
                  w_pls_test,
                  ):
 
+        print("Creating datasets ...")
         train_t5_ds = SiameseDataset(X_left_train, X_right_train, y_t5_train, w_t5_train)
         test_t5_ds  = SiameseDataset(X_left_test,  X_right_test,  y_t5_test,  w_t5_test)
 
@@ -38,6 +39,7 @@ class Trainer:
         batch_size = 1024
         num_workers = min(os.cpu_count() or 4, 8)
 
+        print("Creating loaders ...")
         self.train_t5_loader = DataLoader(train_t5_ds, batch_size, shuffle=True,
                                           num_workers=num_workers, pin_memory=True)
         self.test_t5_loader  = DataLoader(test_t5_ds,  batch_size, shuffle=False,
@@ -54,10 +56,12 @@ class Trainer:
         self.criterion = ContrastiveLoss(margin=1.0)
 
         # instantiate and send to GPU/CPU
+        print("Creating embedding networks ...")
         self.embed_t5 = EmbeddingNetT5().to(DEVICE)
         self.embed_pls = EmbeddingNetpLS().to(DEVICE)
 
         # joint optimizer over both nets
+        print("Creating optimizer ...")
         self.optimizer = optim.Adam(
             list(self.embed_t5.parameters()) + list(self.embed_pls.parameters()),
             lr=0.0025
@@ -106,3 +110,16 @@ class Trainer:
             avg_pls    = total_pls  / len(self.train_pls_loader)
             print(f"Epoch {epoch}/{num_epochs}:  JointLoss={avg_loss:.4f}  "
                 f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}")
+
+        # disable training mode
+        self.embed_pls.eval(); self.embed_t5.eval()
+
+
+    def save(self, path):
+        print(f"Saving model to {path}")
+        torch.save({
+            'embed_t5': self.embed_t5.state_dict(),
+            'embed_pls': self.embed_pls.state_dict(),
+            'optimizer': self.optimizer.state_dict()
+        }, path)
+
