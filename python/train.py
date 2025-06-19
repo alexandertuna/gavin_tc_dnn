@@ -29,6 +29,9 @@ class Trainer:
                  w_pls_test,
                  ):
 
+        self.X_left_test = X_left_test
+        self.X_right_test = X_right_test
+
         print("Creating datasets ...")
         train_t5_ds = SiameseDataset(X_left_train, X_right_train, y_t5_train, w_t5_train)
         test_t5_ds  = SiameseDataset(X_left_test,  X_right_test,  y_t5_test,  w_t5_test)
@@ -122,4 +125,14 @@ class Trainer:
             'embed_pls': self.embed_pls.state_dict(),
             'optimizer': self.optimizer.state_dict()
         }, path)
+
+
+    def load(self, path):
+        print(f"Loading model from {path}")
+        checkpoint = torch.load(path) # map_location=DEVICE
+        self.embed_t5.load_state_dict(checkpoint['embed_t5'])
+        self.embed_pls.load_state_dict(checkpoint['embed_pls'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.embed_t5.to(DEVICE)
+        self.embed_pls.to(DEVICE)
 
