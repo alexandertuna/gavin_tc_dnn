@@ -2,10 +2,16 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
+import torch.nn as nn
 
 from ml import SiameseDataset, PLST5Dataset, EmbeddingNetT5, EmbeddingNetpLS, ContrastiveLoss
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+torch.manual_seed(42)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(42)
+os.environ["PYTHONHASHSEED"] = str(42)
 
 class Trainer:
 
@@ -118,6 +124,18 @@ class Trainer:
         self.embed_pls.eval(); self.embed_t5.eval()
 
 
+    def print_weights_biases(self):
+        print("*"*50)
+        print("T5 embedding model weights and biases:")
+        print_model_weights_biases(self.embed_t5)
+        print("*"*50)
+
+        print("*"*50)
+        print("PLS embedding model weights and biases:")
+        print_model_weights_biases(self.embed_pls)
+        print("*"*50)
+
+
     def save(self, path):
         print(f"Saving model to {path}")
         torch.save({
@@ -136,3 +154,33 @@ class Trainer:
         self.embed_t5.to(DEVICE)
         self.embed_pls.to(DEVICE)
 
+
+def print_formatted_weights_biases(weights, biases, layer_name):
+    # Print biases
+    print(f"HOST_DEVICE_CONSTANT float bias_{layer_name}[{len(biases)}] = {{")
+    print(", ".join(f"{b:.7f}f" for b in biases) + " };")
+    print()
+
+    # Print weights
+    print(f"HOST_DEVICE_CONSTANT const float wgtT_{layer_name}[{len(weights[0])}][{len(weights)}] = {{")
+    for row in weights.T:
+        formatted_row = ", ".join(f"{w:.7f}f" for w in row)
+        print(f"{{ {formatted_row} }},")
+    print("};")
+    print()
+
+
+def print_model_weights_biases(model):
+    # Make sure the model is in evaluation mode
+    model.eval()
+
+    # Iterate through all named modules in the model
+    for name, module in model.named_modules():
+        # Check if the module is a linear layer
+        if isinstance(module, nn.Linear):
+            # Get weights and biases
+            weights = module.weight.data.cpu().numpy()
+            biases = module.bias.data.cpu().numpy()
+
+            # Print formatted weights and biases
+            print_formatted_weights_biases(weights, biases, name.replace('.', '_'))

@@ -22,6 +22,10 @@ import random
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import time
 
+random.seed(42)
+np.random.seed(42)
+os.environ["PYTHONHASHSEED"] = str(42)
+
 DELTA_R2_CUT = 0.02
 ETA_MAX = 2.5
 
@@ -164,12 +168,15 @@ class Preprocessor:
 
     def __init__(self, root_path):
 
+        self.root_path = root_path
         branches = self.load_root_file(root_path) if not LOAD_FEATURES else None
 
         print("Getting T5 features")
         [features_per_event,
          displaced_per_event,
          sim_indices_per_event] = self.get_t5_features(branches) if not LOAD_FEATURES else load_t5_features()
+        self.features_per_event = features_per_event
+        self.sim_indices_per_event = sim_indices_per_event
 
         print("Getting PLS features")
         [pLS_features_per_event,
@@ -614,7 +621,7 @@ class Preprocessor:
                 for ev in range(len(features_per_event))
                 # for ev in range(50)
             ]
-            for fut in as_completed(futures):
+            for fut in futures:
                 _, packed = fut.result()
                 # accumulate
                 sim_evt = sum(1 for _,_,lbl,_ in packed if lbl == 0)
@@ -761,6 +768,7 @@ def _pairs_single_event_vectorized(evt_idx,
     dis_pairs = idxs_triu[dis_mask]
 
     # down-sample
+    random.seed(evt_idx)
     if len(sim_pairs) > max_sim:
         sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
@@ -799,7 +807,7 @@ def create_t5_pairs_balanced_parallel(features_per_event,
 
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         futures = [pool.submit(_pairs_single_event_vectorized, *args) for args in work_args]
-        for fut in as_completed(futures):
+        for fut in futures:
             evt_idx, sim_pairs_evt, dis_pairs_evt = fut.result()
             F = features_per_event[evt_idx]
             D = displaced_per_event[evt_idx]
@@ -876,6 +884,7 @@ def _pairs_pLS_T5_single_vectorized(evt_idx,
     dis_pairs = np.column_stack((idx_p[dis_mask], idx_t[dis_mask]))
 
     # down-sample
+    random.seed(evt_idx)
     if len(sim_pairs) > max_sim:
         sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
