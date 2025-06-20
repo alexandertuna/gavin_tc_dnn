@@ -301,20 +301,42 @@ class Preprocessor:
             print("")
 
 
-            # futures = [
-            #     pool.submit(
-            #         _pairs_pLS_T5_single_vectorized, ev,
-            #         pLS_features_per_event[ev],
-            #         pLS_sim_indices_per_event[ev],
-            #         features_per_event[ev],
-            #         sim_indices_per_event[ev],
-            #         displaced_per_event[ev],
-            #         MAX_SIM, MAX_DIS, INVALID_SIM_IDX
-            #     )
-            #     for ev in range(len(features_per_event))
-            #     # for ev in range(50)
-            # ]
+    def parallelism_test(self):
 
+        if not LOAD_FEATURES:
+            raise ValueError("LOAD_FEATURES must be True to run the speed test")
+
+        # load T5 and pLS features
+        [features_per_event,
+         displaced_per_event,
+         sim_indices_per_event] = load_t5_features()
+
+        # test parallelism with different configurations
+        results = {}
+        for vectorize in [True, False]:
+            for n_workers in [256, 192, 128, 96, 64, 32, 16, 12, 8, 6, 4]:
+                for it in range(3):
+                    print(f"Testing with vectorize={vectorize}, n_workers={n_workers}, it={it}")
+                    start = time.time()
+                    _ = create_t5_pairs_balanced_parallel(
+                        features_per_event,
+                        sim_indices_per_event,
+                        displaced_per_event,
+                        max_similar_pairs_per_event    = 1000,
+                        max_dissimilar_pairs_per_event = 1000,
+                        invalid_sim_idx                = -1,
+                        n_workers                      = n_workers,
+                        vectorize                      = vectorize,
+                    )
+                    end = time.time()
+                    results[(vectorize, n_workers, it)] = end - start
+                    print(f"Result vectorize={vectorize} n_workers={n_workers} it={it} {end - start:.4f} seconds")
+
+
+        # print results
+        print("Parallelism test results:")
+        for (vectorize, n_workers, it), duration in results.items():
+            print(f"vectorize={vectorize}, n_workers={n_workers}, it={it}: {duration:.4f} seconds")
 
 
     def get_t5_features(self, branches):
@@ -786,7 +808,8 @@ def create_t5_pairs_balanced_parallel(features_per_event,
                                       max_similar_pairs_per_event=100,
                                       max_dissimilar_pairs_per_event=450,
                                       invalid_sim_idx=-1,
-                                      n_workers=None):
+                                      n_workers=None,
+                                      vectorize=True):
     t0 = time.time()
     print("\n>>> Pair generation  (ΔR² < 0.02)  –  parallel mode")
 
@@ -802,11 +825,12 @@ def create_t5_pairs_balanced_parallel(features_per_event,
         # for evt_idx in range(50)
     ]
 
+    func = _pairs_single_event_vectorized if vectorize else _pairs_single_event
     sim_L, sim_R, sim_disp = [], [], []
     dis_L, dis_R, dis_disp = [], [], []
 
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
-        futures = [pool.submit(_pairs_single_event_vectorized, *args) for args in work_args]
+        futures = [pool.submit(func, *args) for args in work_args]
         for fut in futures:
             evt_idx, sim_pairs_evt, dis_pairs_evt = fut.result()
             F = features_per_event[evt_idx]
