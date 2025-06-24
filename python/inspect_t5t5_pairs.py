@@ -31,8 +31,6 @@ def main():
         (111, 246, 247),
         (238, 2547, 2553),
         (209, 5671, 5674),
-        # # (143, 3686, 3718), # wtf
-        # # (495, 5989, 5990),
         (44, 5068, 5071),
         (63, 1531, 1537),
         (89, 4767, 4769),
@@ -40,10 +38,6 @@ def main():
         (453, 3734, 3737),
         (78, 1212, 1213),
         (142, 6596, 6600),
-        # # # (162, 3555, 3555), # wtf
-        # # # (254, 3537, 3537), # wtf
-        # # (279, 4814, 4820),
-        # # (410, 3653, 3659),
     ]
 
 
@@ -59,13 +53,13 @@ def main():
             draw_t5t5s(data, evt, t5_idx0, t5_idx1, pdf)
 
 
-    # with PdfPages("test.pdf") as pdf:
-    #     fig, ax = plt.subplots(figsize=(8, 8))
-    #     ax.hist(ak.flatten(data["t5_pMatched"]), bins=100)
-    #     ax.set_xlabel("T5 pMatched")
-    #     ax.set_ylabel("Counts")
-    #     pdf.savefig(fig)
-    #     plt.close()
+    with PdfPages("pmatched.pdf") as pdf:
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.hist(ak.flatten(data["t5_pMatched"]), bins=100)
+        ax.set_xlabel("T5 pMatched")
+        ax.set_ylabel("Counts")
+        pdf.savefig(fig)
+        plt.close()
 
 
 def print_info(data: ak.Array, evt: int, t5_idx0: int, t5_idx1: int) -> None:
@@ -79,25 +73,10 @@ def print_info(data: ak.Array, evt: int, t5_idx0: int, t5_idx1: int) -> None:
     pmatched_1 = data['t5_pMatched'][evt][t5_idx1]
     print(f"Event {evt}, T5 indices: {t5_idx0} vs {t5_idx1}, percent matched: {pmatched_0:.3f} vs {pmatched_1:.3f}")
 
-    # print("ffff")
-    # print(data['t5_matched_simIdx'][evt])
-    # print(data['t5_hitIdxs'][evt])
-    # print(data['t5_pMatched'][evt])
-    # hitIdxs_0 = data['t5_hitIdxs'][evt][t5_idx0]
-    # hitIdxs_1 = data['t5_hitIdxs'][evt][t5_idx1]
-    # print(f"Hit indices 0: {hitIdxs_0}")
-    # print(f"Hit indices 1: {hitIdxs_1}")
-
-
     t5_pt = data['t5_pt'][evt]
     t5_eta = data['t5_eta'][evt]
     t5_phi = data['t5_phi'][evt]
     matched_simIdx = data['t5_matched_simIdx'][evt]
-
-    # print(f"T5 pt: {t5_pt[t5_idx0]}, {t5_pt[t5_idx1]}")
-    # print(f"T5 eta: {t5_eta[t5_idx0]}, {t5_eta[t5_idx1]}")
-    # print(f"T5 phi: {t5_phi[t5_idx0]}, {t5_phi[t5_idx1]}")
-    # print(f"Matched simIdx: {matched_simIdx[t5_idx0]}, {matched_simIdx[t5_idx1]}")
 
 
 def draw_t5t5s(data: ak.Array, evt: int, t5_l: int, t5_r: int, pdf: PdfPages) -> None:
