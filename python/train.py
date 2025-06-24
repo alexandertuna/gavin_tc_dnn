@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
@@ -126,6 +127,7 @@ class Trainer:
 
     def print_weights_biases(self):
         print("*"*50)
+        print(time.strftime("Time: %Y-%m-%d %H:%M:%S", time.localtime()))
         print("T5 embedding model weights and biases:")
         print_model_weights_biases(self.embed_t5)
         print("*"*50)
