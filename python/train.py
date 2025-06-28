@@ -80,6 +80,7 @@ class Trainer:
 
     def train(self):
         num_epochs = 200
+        print(time.strftime("Time: %Y-%m-%d %H:%M:%S", time.localtime()))
 
         for epoch in range(1, num_epochs+1):
             self.embed_t5.train(); self.embed_pls.train()
