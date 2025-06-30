@@ -19,6 +19,25 @@ class Plotter:
     def plot(self, pdf_path: Path):
         with PdfPages(pdf_path) as pdf:
             self.plot_t5t5_performance(pdf)
+            self.plot_loss_per_epoch(pdf)
+
+
+    def plot_loss_per_epoch(self, pdf: PdfPages):
+        if not hasattr(self.trainer, "losses_t5t5") or not hasattr(self.trainer, "losses_t5pls"):
+            print("No losses to plot. Make sure to call train() first.")
+            return
+        # Plot training losses
+        fig, ax = plt.subplots(figsize=(10,6))
+        ax.plot(self.trainer.losses_t5t5, label="T5-T5 Loss")
+        ax.plot(self.trainer.losses_t5pls, label="T5-PLS Loss")
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.set_title("Training Losses")
+        ax.legend()
+        ax.grid(alpha=0.3)
+        ax.tick_params(top=True, right=True)
+        pdf.savefig(fig)
+        plt.close(fig)
 
 
     def plot_t5t5_performance(self, pdf: PdfPages):
