@@ -37,10 +37,10 @@ MAX_SIM            = 1000
 MAX_DIS            = 1000
 
 # intermediate data
-LOAD_FEATURES = True
+LOAD_FEATURES = False
 FEATURES_T5 = Path("features_t5.pkl")
 FEATURES_PLS = Path("features_pls.pkl")
-LOAD_PAIRS = True
+LOAD_PAIRS = False
 PAIRS_T5T5 = Path("pairs_t5t5.pkl")
 PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 
@@ -148,6 +148,10 @@ def load_t5_t5_pairs():
         data["y_t5_test"],
         data["w_t5_train"],
         data["w_t5_test"],
+        data["true_L_train"],
+        data["true_L_test"],
+        data["true_R_train"],
+        data["true_R_test"]
     ]
 
 def load_t5_pls_pairs():
@@ -191,6 +195,10 @@ class Preprocessor:
          self.y_t5_test,
          self.w_t5_train,
          self.w_t5_test,
+         self.true_L_train,
+         self.true_L_test,
+         self.true_R_train,
+         self.true_R_test
          ] = self.get_t5_pairs(features_per_event,
                                displaced_per_event,
                                sim_indices_per_event) if not LOAD_PAIRS else load_t5_t5_pairs()
@@ -373,6 +381,7 @@ class Preprocessor:
 
             for i in range(n_t5):
                 if branches['t5_pMatched'][ev][i] < pMATCHED_THRESHOLD:
+                # if branches['t5_pMatched'][ev][i] < 0.75 and branches['t5_pMatched'][ev][i] > 0.55:
                     continue
 
                 idx0 = branches['t5_t3_idx0'][ev][i]
@@ -564,14 +573,14 @@ class Preprocessor:
     def get_t5_pairs(self, features_per_event, displaced_per_event, sim_indices_per_event):
 
         # invoke
-        X_left, X_right, y, disp_L, disp_R = create_t5_pairs_balanced_parallel(
+        X_left, X_right, y, disp_L, disp_R, true_L, true_R = create_t5_pairs_balanced_parallel(
             features_per_event,
             sim_indices_per_event,
             displaced_per_event,
             max_similar_pairs_per_event    = 1000,
             max_dissimilar_pairs_per_event = 1000,
             invalid_sim_idx                = -1,
-            n_workers                      = None
+            n_workers                      = min(64, os.cpu_count() // 2),
         )
 
         if len(y) == 0:
@@ -588,8 +597,10 @@ class Preprocessor:
         X_left_train, X_left_test, \
         X_right_train, X_right_test, \
         y_t5_train, y_t5_test, \
-        w_t5_train, w_t5_test = train_test_split(
-            X_left, X_right, y, weights_t5,
+        w_t5_train, w_t5_test, \
+        true_L_train, true_L_test, \
+        true_R_train, true_R_test = train_test_split(
+            X_left, X_right, y, weights_t5, true_L, true_R,
             test_size=0.20, random_state=42,
             stratify=y, shuffle=True
         )
@@ -610,6 +621,10 @@ class Preprocessor:
                 "y_t5_test": y_t5_test,
                 "w_t5_train": w_t5_train,
                 "w_t5_test": w_t5_test,
+                "true_L_train": true_L_train,
+                "true_L_test": true_L_test,
+                "true_R_train": true_R_train,
+                "true_R_test": true_R_test,
             }, fi)
 
         return [
@@ -617,6 +632,8 @@ class Preprocessor:
             X_right_train, X_right_test,
             y_t5_train, y_t5_test,
             w_t5_train, w_t5_test,
+            true_L_train, true_L_test,
+            true_R_train, true_R_test
         ]
 
 
@@ -629,7 +646,8 @@ class Preprocessor:
         sim_total = 0
         dis_total = 0
 
-        with ProcessPoolExecutor() as pool:
+        n_workers = min(64, os.cpu_count() // 2)
+        with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures = [
                 pool.submit(
                     _pairs_pLS_T5_single_vectorized, ev,
@@ -826,39 +844,48 @@ def create_t5_pairs_balanced_parallel(features_per_event,
     ]
 
     func = _pairs_single_event_vectorized if vectorize else _pairs_single_event
-    sim_L, sim_R, sim_disp = [], [], []
-    dis_L, dis_R, dis_disp = [], [], []
+    sim_L, sim_R, sim_disp, true_L = [], [], [], []
+    dis_L, dis_R, dis_disp, true_R = [], [], [], []
 
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         futures = [pool.submit(func, *args) for args in work_args]
         for fut in futures:
             evt_idx, sim_pairs_evt, dis_pairs_evt = fut.result()
             F = features_per_event[evt_idx]
+            S = sim_indices_per_event[evt_idx]
             D = displaced_per_event[evt_idx]
 
             for i, j in sim_pairs_evt:
                 sim_L.append(F[i])
                 sim_R.append(F[j])
                 sim_disp.append(D[i] > 0.1 or D[j] > 0.1)
+                true_L.append(S[i])
+                true_R.append(S[j])
 
             for i, j in dis_pairs_evt:
                 dis_L.append(F[i])
                 dis_R.append(F[j])
                 dis_disp.append(D[i] > 0.1 or D[j] > 0.1)
+                true_L.append(S[i])
+                true_R.append(S[j])
 
     X_left  = np.concatenate([np.asarray(sim_L, dtype=np.float32),
-                            np.asarray(dis_L, dtype=np.float32)], axis=0)
+                              np.asarray(dis_L, dtype=np.float32)], axis=0)
     X_right = np.concatenate([np.asarray(sim_R, dtype=np.float32),
-                            np.asarray(dis_R, dtype=np.float32)], axis=0)
+                              np.asarray(dis_R, dtype=np.float32)], axis=0)
     y       = np.concatenate([np.zeros(len(sim_L), dtype=np.int32),
-                            np.ones (len(dis_L), dtype=np.int32)])
+                              np.ones (len(dis_L), dtype=np.int32)])
 
     disp_L = np.concatenate([np.asarray(sim_disp, dtype=bool),
-                            np.asarray(dis_disp, dtype=bool)], axis=0)
+                             np.asarray(dis_disp, dtype=bool)], axis=0)
     disp_R = disp_L.copy()
 
+    # PRINT THESE BAD BOIS
+    true_L = np.asarray(true_L, dtype=np.int64)
+    true_R = np.asarray(true_R, dtype=np.int64)
+
     print(f"<<< done in {time.time() - t0:.1f}s  | sim {len(sim_L)}  dis {len(dis_L)}  total {len(y)}")
-    return X_left, X_right, y, disp_L, disp_R
+    return X_left, X_right, y, disp_L, disp_R, true_L, true_R
 
 
 def _pairs_pLS_T5_single_vectorized(evt_idx,
