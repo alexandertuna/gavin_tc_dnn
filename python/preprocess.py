@@ -844,8 +844,8 @@ def create_t5_pairs_balanced_parallel(features_per_event,
     ]
 
     func = _pairs_single_event_vectorized if vectorize else _pairs_single_event
-    sim_L, sim_R, sim_disp, true_L = [], [], [], []
-    dis_L, dis_R, dis_disp, true_R = [], [], [], []
+    sim_L, sim_R, sim_disp, true_sim_L, true_sim_R = [], [], [], [], []
+    dis_L, dis_R, dis_disp, true_dis_L, true_dis_R = [], [], [], [], []
 
     with ProcessPoolExecutor(max_workers=n_workers) as pool:
         futures = [pool.submit(func, *args) for args in work_args]
@@ -859,15 +859,15 @@ def create_t5_pairs_balanced_parallel(features_per_event,
                 sim_L.append(F[i])
                 sim_R.append(F[j])
                 sim_disp.append(D[i] > 0.1 or D[j] > 0.1)
-                true_L.append(S[i])
-                true_R.append(S[j])
+                true_sim_L.append(S[i])
+                true_sim_R.append(S[j])
 
             for i, j in dis_pairs_evt:
                 dis_L.append(F[i])
                 dis_R.append(F[j])
                 dis_disp.append(D[i] > 0.1 or D[j] > 0.1)
-                true_L.append(S[i])
-                true_R.append(S[j])
+                true_dis_L.append(S[i])
+                true_dis_R.append(S[j])
 
     X_left  = np.concatenate([np.asarray(sim_L, dtype=np.float32),
                               np.asarray(dis_L, dtype=np.float32)], axis=0)
@@ -880,9 +880,10 @@ def create_t5_pairs_balanced_parallel(features_per_event,
                              np.asarray(dis_disp, dtype=bool)], axis=0)
     disp_R = disp_L.copy()
 
-    # PRINT THESE BAD BOIS
-    true_L = np.asarray(true_L, dtype=np.int64)
-    true_R = np.asarray(true_R, dtype=np.int64)
+    true_L = np.concatenate([np.asarray(true_sim_L, dtype=np.int64),
+                             np.asarray(true_dis_L, dtype=np.int64)], axis=0)
+    true_R = np.concatenate([np.asarray(true_sim_R, dtype=np.int64),
+                             np.asarray(true_dis_R, dtype=np.int64)], axis=0)
 
     print(f"<<< done in {time.time() - t0:.1f}s  | sim {len(sim_L)}  dis {len(dis_L)}  total {len(y)}")
     return X_left, X_right, y, disp_L, disp_R, true_L, true_R
