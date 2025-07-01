@@ -19,6 +19,7 @@ class Plotter:
     def plot(self, pdf_path: Path):
         with PdfPages(pdf_path) as pdf:
             self.plot_t5t5_performance(pdf)
+            self.plot_t5pls_performance(pdf)
             self.plot_loss_per_epoch(pdf)
 
 
@@ -33,9 +34,11 @@ class Plotter:
         ax.set_xlabel("Epoch")
         ax.set_ylabel("Loss")
         ax.set_title("Training Losses")
+        ax.semilogy()
+        ax.set_ylim(1e-2, 1e0)
         ax.legend()
         ax.grid(alpha=0.3)
-        ax.tick_params(top=True, right=True)
+        ax.tick_params(top=True, right=True, which="both")
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -223,5 +226,83 @@ class Plotter:
         print(f"T5-T5 AUC (embedding) = {auc_t5:.4f}")
         print(f"T5-T5 AUC (ΔR²)       = {auc_dr :.4f}")
 
+    def plot_t5pls_performance(self, pdf: PdfPages):
 
+        self.trainer.embed_pls.eval(); self.trainer.embed_t5.eval()
+
+        # 1) collect distances and labels ------------------------------------
+        dist_pls_all = []
+        lbl_pls_all  = []
+
+        with torch.no_grad():
+            for pls_feats, t5_feats, y, _ in self.trainer.test_pls_loader:
+                # pls_feats = pls_feats.to(device)
+                # t5_feats  = t5_feats.to(device)
+
+                e_p = self.trainer.embed_pls(pls_feats)
+                e_t = self.trainer.embed_t5(t5_feats)
+                d   = torch.sqrt(((e_p - e_t) ** 2).sum(dim=1, keepdim=True) + 1e-6)
+
+                dist_pls_all.append(d.cpu().numpy().flatten())
+                lbl_pls_all .append(y.numpy().flatten())
+
+        dist_pls_all = np.concatenate(dist_pls_all)
+        lbl_pls_all  = np.concatenate(lbl_pls_all)
+
+        print(f"pLS-T5 pairs:  {len(dist_pls_all)} distances")
+        print(f"  Range: min={dist_pls_all.min():.4f}, max={dist_pls_all.max():.4f}")
+        print(f"  Labels: similar={(lbl_pls_all==0).sum()}, dissimilar={(lbl_pls_all==1).sum()}")
+
+
+        # 2) histogram of distances ------------------------------------------
+        plt.figure(figsize=(10,6))
+        bins = np.linspace(0, dist_pls_all.max(), 100)
+        plt.hist(dist_pls_all[lbl_pls_all==0], bins=bins, density=True, alpha=0.6, label='Duplicates (0)')
+        plt.hist(dist_pls_all[lbl_pls_all==1], bins=bins, density=True, alpha=0.6, label='Non-Duplicates (1)')
+        plt.yscale('log')
+        plt.xlabel("Euclidean Distance")
+        plt.ylabel("Density")
+        plt.title("pLS-T5 Embedding Distance Distribution (Test Set)")
+        plt.legend()
+        plt.grid(alpha=0.3)
+        plt.xlim(left=0)
+        # plt.show()
+        pdf.savefig()
+        plt.close()
+
+        # --------------------------------------------------------------------
+        # ΔR² baseline for the same pLS-T5 pairs
+        # --------------------------------------------------------------------
+        #  — recover φ and η for the raw feature arrays used in the split
+        phi_left  = np.arctan2(self.trainer.X_pls_test[:, 3],  self.trainer.X_pls_test[:, 2])     # pLS: sinφ, cosφ
+        phi_right = np.arctan2(self.trainer.X_t5raw_test[:, 2], self.trainer.X_t5raw_test[:, 1])  # T5 : sinφ, cosφ
+        eta_left  = self.trainer.X_pls_test[:, 0]  * 4.0        # pLS stored η/4
+        eta_right = self.trainer.X_t5raw_test[:, 0] * ETA_MAX   # T5  stored η/η_max
+
+        dphi = (phi_left - phi_right + np.pi) % (2*np.pi) - np.pi
+        deta = eta_left - eta_right
+        dRsq = dphi**2 + deta**2
+
+        # 3) ROC curves: embedding vs ΔR² baseline ---------------------------
+        fpr_pls, tpr_pls, _ = roc_curve(lbl_pls_all, -dist_pls_all, pos_label=0)
+        fpr_dr,  tpr_dr,  _ = roc_curve(lbl_pls_all, -dRsq,         pos_label=0)
+
+        auc_pls = auc(fpr_pls, tpr_pls)
+        auc_dr  = auc(fpr_dr,  tpr_dr)
+
+        plt.figure(figsize=(7,7))
+        plt.plot(fpr_pls, tpr_pls, label=f"Embedding distance (AUC={auc_pls:.3f})")
+        plt.plot(fpr_dr,  tpr_dr,  '--', label=f"ΔR² baseline (AUC={auc_dr:.3f})")
+        plt.plot([0,1],[0,1], '--', color='grey')
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("pLS-T5 Duplicate Discrimination")
+        plt.legend()
+        plt.grid(alpha=0.3)
+        # plt.show()
+        pdf.savefig()
+        plt.close()
+
+        print(f"pLS-T5 AUC (embedding) = {auc_pls:.4f}")
+        print(f"pLS-T5 AUC (ΔR²)       = {auc_dr :.4f}")
 
