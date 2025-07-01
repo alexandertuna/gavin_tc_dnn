@@ -38,6 +38,8 @@ class Trainer:
 
         self.X_left_test = X_left_test
         self.X_right_test = X_right_test
+        self.X_pls_test = X_pls_test
+        self.X_t5raw_test = X_t5raw_test
 
         print("Creating datasets ...")
         train_t5_ds = SiameseDataset(X_left_train, X_right_train, y_t5_train, w_t5_train)
@@ -81,6 +83,8 @@ class Trainer:
     def train(self):
         num_epochs = 200
         print(time.strftime("Time: %Y-%m-%d %H:%M:%S", time.localtime()))
+        self.losses_t5t5 = []
+        self.losses_t5pls = []
 
         for epoch in range(1, num_epochs+1):
             self.embed_t5.train(); self.embed_pls.train()
@@ -121,6 +125,8 @@ class Trainer:
             avg_pls    = total_pls  / len(self.train_pls_loader)
             print(f"Epoch {epoch}/{num_epochs}:  JointLoss={avg_loss:.4f}  "
                 f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}")
+            self.losses_t5t5.append(avg_t5)
+            self.losses_t5pls.append(avg_pls)
 
         # disable training mode
         self.embed_pls.eval(); self.embed_t5.eval()
