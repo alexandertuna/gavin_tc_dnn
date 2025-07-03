@@ -5,8 +5,15 @@ from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 import torch.nn as nn
 
+import numpy as np, torch, matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+import numpy as np, torch, matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+from matplotlib.backends.backend_pdf import PdfPages
+
 from ml import SiameseDataset, PLST5Dataset, EmbeddingNetT5, EmbeddingNetpLS, ContrastiveLoss
 
+ETA_MAX = 2.5
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 torch.manual_seed(42)
@@ -40,6 +47,8 @@ class Trainer:
         self.X_right_test = X_right_test
         self.X_pls_test = X_pls_test
         self.X_t5raw_test = X_t5raw_test
+        self.y_t5_test = y_t5_test
+        self.y_pls_test = y_pls_test
 
         print("Creating datasets ...")
         train_t5_ds = SiameseDataset(X_left_train, X_right_train, y_t5_train, w_t5_train)
@@ -130,6 +139,154 @@ class Trainer:
 
         # disable training mode
         self.embed_pls.eval(); self.embed_t5.eval()
+
+
+    def print_thresholds(self):
+        with PdfPages("thresholds.pdf") as pdf:
+            self.print_t5t5_thresholds(pdf)
+            self.print_t5pls_thresholds(pdf)
+
+
+    def print_t5t5_thresholds(self, pdf):
+        print("// T5-T5 thresholds:")
+        percentiles   = [80, 85, 90, 93, 95, 98, 99]   # keep this % of non‑duplicates
+        eta_edges     = np.arange(0.0, 2.75, 0.25)     # |η| binning
+        dr2_threshold = 1.0e-3                         # ΔR² cut
+
+        eta_L  = self.X_left_test[:, 0] * ETA_MAX
+        phi_L  = np.arctan2(self.X_left_test[:, 2], self.X_left_test[:, 1])
+        eta_R  = self.X_right_test[:, 0] * ETA_MAX
+        phi_R  = np.arctan2(self.X_right_test[:, 2], self.X_right_test[:, 1])
+
+        abs_eta = np.abs(eta_L)
+
+        deta = eta_L - eta_R
+        dphi = (phi_R - phi_L + np.pi) % (2*np.pi) - np.pi
+        dR2  = deta**2 + dphi**2                       # ΔR² baseline
+
+        self.embed_t5.eval()
+        with torch.no_grad():
+            L = torch.from_numpy(self.X_left_test.astype(np.float32)).to(DEVICE)
+            R = torch.from_numpy(self.X_right_test.astype(np.float32)).to(DEVICE)
+            dist = torch.sqrt(((self.embed_t5(L) - self.embed_t5(R))**2).sum(dim=1) + 1e-6) \
+                    .cpu().numpy()
+
+        y_test = self.y_t5_test                              # shorthand
+
+        cut_vals   = {p: [] for p in percentiles}
+        dup_rej    = {p: [] for p in percentiles}
+        dr2_eff    = []
+        dr2_rejdup = []
+
+        for lo, hi in zip(eta_edges[:-1], eta_edges[1:]):
+            nnd = (abs_eta >= lo) & (abs_eta < hi) & (y_test == 1)   # non‑dups
+            dup = (abs_eta >= lo) & (abs_eta < hi) & (y_test == 0)   # dups
+
+            # ΔR² metrics
+            dr2_eff   .append(np.mean(dR2[nnd] >= dr2_threshold)*100 if np.any(nnd) else np.nan)
+            dr2_rejdup.append(np.mean(dR2[dup] <  dr2_threshold)*100 if np.any(dup) else np.nan)
+
+            # embedding‑distance cuts
+            for p in percentiles:
+                cut = np.percentile(dist[nnd], 100-p) if np.any(nnd) else np.nan
+                cut_vals[p].append(cut)
+                dup_rej[p].append(np.mean(dist[dup] < cut)*100 if (np.any(dup) and not np.isnan(cut)) else np.nan)
+
+        fig, ax = plt.subplots(figsize=(10,6))
+        h = ax.hist2d(abs_eta[y_test==1], dist[y_test==1],
+                    bins=[eta_edges, 50], norm=LogNorm())
+        fig.colorbar(h[3], ax=ax, label='Counts')
+        ax.set_xlabel('|η| (hit 0)')
+        ax.set_ylabel('Embedding distance')
+        ax.set_title('T5-T5  •  Embedding distance vs |η|  (test non‑duplicates)')
+
+        mid_eta = eta_edges[:-1] + 0.5*np.diff(eta_edges)
+        for p, clr in zip(percentiles, plt.cm.rainbow(np.linspace(0,1,len(percentiles)))):
+            ax.plot(mid_eta, cut_vals[p], '-o', color=clr, label=f'{p}% retention')
+        ax.legend(); ax.grid(alpha=0.3); plt.show()
+        pdf.savefig()
+        plt.close()
+
+        for p in percentiles:
+            cuts = ", ".join(f"{v:.4f}" if not np.isnan(v) else "nan" for v in cut_vals[p])
+            rejs = ", ".join(f"{v:.2f}"  if not np.isnan(v) else "nan" for v in dup_rej[p])
+            print(f"{p}%-cut:     {{ {cuts} }}")
+            print(f"  {p}%-dupRej: {{ {rejs} }}")
+            print()
+        eff = ", ".join(f"{v:.2f}" if not np.isnan(v) else "nan" for v in dr2_eff)
+        rej = ", ".join(f"{v:.2f}" if not np.isnan(v) else "nan" for v in dr2_rejdup)
+        print(f"dR2-eff  (%): {{ {eff} }}")
+        print(f"dR2-dupRej (%): {{ {rej} }}")
+
+
+    def print_t5pls_thresholds(self, pdf):
+        print("// pLS-T5 thresholds:")
+        percentiles   = [80, 85, 90, 93, 95, 98, 99]
+        eta_edges     = np.arange(0.0, 2.75, 0.25)
+        dr2_threshold = 1.0e-3
+
+        eta_L  = self.X_pls_test[:, 0] * 4.0                     # pLS η was stored as η/4
+        phi_L  = np.arctan2(self.X_pls_test[:, 3], self.X_pls_test[:, 2])
+        eta_R  = self.X_t5raw_test[:, 0] * ETA_MAX
+        phi_R  = np.arctan2(self.X_t5raw_test[:, 2], self.X_t5raw_test[:, 1])
+
+        abs_eta = np.abs(eta_L)
+
+        deta = eta_L - eta_R
+        dphi = (phi_R - phi_L + np.pi) % (2*np.pi) - np.pi
+        dR2  = deta**2 + dphi**2
+
+        self.embed_pls.eval(); self.embed_t5.eval()
+        with torch.no_grad():
+            L = torch.from_numpy(self.X_pls_test.astype(np.float32)).to(DEVICE)
+            R = torch.from_numpy(self.X_t5raw_test.astype(np.float32)).to(DEVICE)
+            dist = torch.sqrt(((self.embed_pls(L) - self.embed_t5(R))**2).sum(dim=1) + 1e-6) \
+                    .cpu().numpy()
+
+        y_test = self.y_pls_test
+
+        cut_vals   = {p: [] for p in percentiles}
+        dup_rej    = {p: [] for p in percentiles}
+        dr2_eff    = []
+        dr2_rejdup = []
+
+        for lo, hi in zip(eta_edges[:-1], eta_edges[1:]):
+            nnd = (abs_eta >= lo) & (abs_eta < hi) & (y_test == 1)
+            dup = (abs_eta >= lo) & (abs_eta < hi) & (y_test == 0)
+
+            dr2_eff   .append(np.mean(dR2[nnd] >= dr2_threshold)*100 if np.any(nnd) else np.nan)
+            dr2_rejdup.append(np.mean(dR2[dup] <  dr2_threshold)*100 if np.any(dup) else np.nan)
+
+            for p in percentiles:
+                cut = np.percentile(dist[nnd], 100-p) if np.any(nnd) else np.nan
+                cut_vals[p].append(cut)
+                dup_rej[p].append(np.mean(dist[dup] < cut)*100 if (np.any(dup) and not np.isnan(cut)) else np.nan)
+
+        fig, ax = plt.subplots(figsize=(10,6))
+        h = ax.hist2d(abs_eta[y_test==1], dist[y_test==1],
+                    bins=[eta_edges, 50], norm=LogNorm())
+        fig.colorbar(h[3], ax=ax, label='Counts')
+        ax.set_xlabel('|η| (pLS)')
+        ax.set_ylabel('Embedding distance')
+        ax.set_title('pLS-T5  •  Embedding distance vs |η|  (test non-duplicates)')
+
+        mid_eta = eta_edges[:-1] + 0.5*np.diff(eta_edges)
+        for p, clr in zip(percentiles, plt.cm.rainbow(np.linspace(0,1,len(percentiles)))):
+            ax.plot(mid_eta, cut_vals[p], '-o', color=clr, label=f'{p}% retention')
+        ax.legend(); ax.grid(alpha=0.3); plt.show()
+        pdf.savefig()
+        plt.close()
+
+        for p in percentiles:
+            cuts = ", ".join(f"{v:.4f}" if not np.isnan(v) else "nan" for v in cut_vals[p])
+            rejs = ", ".join(f"{v:.2f}"  if not np.isnan(v) else "nan" for v in dup_rej[p])
+            print(f"{p}%-cut:     {{ {cuts} }}")
+            print(f"  {p}%-dupRej: {{ {rejs} }}")
+            print()
+        eff = ", ".join(f"{v:.2f}" if not np.isnan(v) else "nan" for v in dr2_eff)
+        rej = ", ".join(f"{v:.2f}" if not np.isnan(v) else "nan" for v in dr2_rejdup)
+        print(f"dR2-eff  (%): {{ {eff} }}")
+        print(f"dR2-dupRej (%): {{ {rej} }}")
 
 
     def print_weights_biases(self):
