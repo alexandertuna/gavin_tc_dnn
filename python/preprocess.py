@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 import random
 import awkward as ak # Using awkward array for easier handling of jagged data
 import time # For timing steps
+from tqdm import tqdm
 
 import time, random, math, numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -47,6 +48,7 @@ PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 
 def load_root_file(file_path, branches=None, print_branches=False):
     all_branches = {}
+    print(f"Loading ROOT file: {file_path}")
     with uproot.open(file_path) as file:
         tree = file["tree"]
         # Load all ROOT branches into array if not specified
@@ -56,7 +58,7 @@ def load_root_file(file_path, branches=None, print_branches=False):
         if print_branches:
             print("Branches:", tree.keys())
         # Each branch is added to the dictionary
-        for branch in branches:
+        for branch in tqdm(branches):
             try:
                 all_branches[branch] = (tree[branch].array(library="np"))
             except uproot.KeyInFileError as e:
@@ -367,7 +369,7 @@ class Preprocessor:
         sim_indices_per_event = []
 
         kept_tot, init_tot = 0, 0
-        for ev in range(n_events):
+        for ev in tqdm(range(n_events)):
 
             n_t5 = len(branches['t5_t3_idx0'][ev])
             init_tot += n_t5
@@ -381,7 +383,6 @@ class Preprocessor:
 
             for i in range(n_t5):
                 if branches['t5_pMatched'][ev][i] < pMATCHED_THRESHOLD:
-                # if branches['t5_pMatched'][ev][i] < 0.75 and branches['t5_pMatched'][ev][i] > 0.55:
                     continue
 
                 idx0 = branches['t5_t3_idx0'][ev][i]
@@ -501,7 +502,7 @@ class Preprocessor:
         pLS_sim_indices_per_event = []
 
         kept_tot_pls, init_tot_pls = 0, 0
-        for ev in range(n_events):
+        for ev in tqdm(range(n_events)):
             n_pls = len(branches['pLS_eta'][ev])
             init_tot_pls += n_pls
             if n_pls == 0:
@@ -580,7 +581,7 @@ class Preprocessor:
             max_similar_pairs_per_event    = 1000,
             max_dissimilar_pairs_per_event = 1000,
             invalid_sim_idx                = -1,
-            n_workers                      = min(64, os.cpu_count() // 2),
+            n_workers                      = min(32, os.cpu_count() // 2),
         )
 
         if len(y) == 0:
@@ -646,7 +647,7 @@ class Preprocessor:
         sim_total = 0
         dis_total = 0
 
-        n_workers = min(64, os.cpu_count() // 2)
+        n_workers = min(32, os.cpu_count() // 2)
         with ProcessPoolExecutor(max_workers=n_workers) as pool:
             futures = [
                 pool.submit(
