@@ -3,13 +3,13 @@ import numpy as np
 from pathlib import Path
 import pickle
 import uproot
-from tqdm import tqdm
 import torch
 
 # from preprocess import load_root_file
 from preprocess import branches_list
 from ml import EmbeddingNetT5, EmbeddingNetpLS
 
+PAIRS_T5T5 = Path("pairs_t5t5.pkl")
 PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 BRANCHES = Path("branches.pkl")
 BONUS_FEATURES = 2
@@ -29,12 +29,16 @@ def main():
 
     plotter = PlotDuplicatesWithBigDistance()
     plotter.load_network(network)
+    plotter.load_t5_t5_pairs()
     plotter.load_t5_pls_pairs()
     plotter.load_test_scores()
     plotter.load_tracking_ntuple(TRACKING_NTUPLE, SIM_BRANCHES)
     plotter.load_raw_data(file_path)
     pairs = plotter.get_pls_t5_pairs_of_interest()
-    plotter.plot(pairs)
+    plotter.plot_t5_pls_pairs(pairs)
+
+    pairs_t5t5 = plotter.get_t5_t5_pairs_of_interest()
+    plotter.plot_t5_t5_pairs(pairs_t5t5)
 
 
 class PlotDuplicatesWithBigDistance:
@@ -53,7 +57,7 @@ class PlotDuplicatesWithBigDistance:
 
 
     def load_test_scores(self):
-        # self.load_t5_t5_test_scores()
+        self.load_t5_t5_test_scores()
         self.load_pls_t5_test_scores()
 
 
@@ -89,6 +93,23 @@ class PlotDuplicatesWithBigDistance:
         self.sim = load_tracking_ntuple(file_path, branches)
 
 
+    def load_t5_t5_pairs(self):
+        print("Getting T5-T5 pairs")
+        [self.X_left_train,
+         self.X_left_test,
+         self.X_right_train,
+         self.X_right_test,
+         self.y_t5_train,
+         self.y_t5_test,
+         self.w_t5_train,
+         self.w_t5_test,
+         self.true_L_train,
+         self.true_L_test,
+         self.true_R_train,
+         self.true_R_test
+         ] = load_t5_t5_pairs()
+
+
     def load_t5_pls_pairs(self):
         print("Getting PLS-T5 pairs")
         [self.X_pls_train,
@@ -106,8 +127,21 @@ class PlotDuplicatesWithBigDistance:
         pass
 
 
-    def get_t5_t5_pairs(self):
-        pass
+    def get_t5_t5_pairs_of_interest(self, max_pairs=2):
+        dup_mask = self.y_t5_test == 0
+        dup_dist = self.d_t5t5[dup_mask]
+        dup_x_l = self.X_left_test[dup_mask]
+        dup_x_r = self.X_right_test[dup_mask]
+        dup_idxs = np.flip(np.argsort(dup_dist))
+        ret = []
+        for i in range(max_pairs):
+            idx = dup_idxs[i]
+            ev_l, i_l = dup_x_l[idx][-2], dup_x_l[idx][-1]
+            ev_r, i_r = dup_x_r[idx][-2], dup_x_r[idx][-1]
+            if ev_l != ev_r:
+                raise ValueError(f"Event mismatch: {ev_l} != {ev_r}")
+            ret.append( (int(ev_l), int(i_l), int(i_r), dup_dist[idx]) )
+        return ret
 
 
     def get_pls_t5_pairs_of_interest(self, max_pairs=5):
@@ -131,7 +165,11 @@ class PlotDuplicatesWithBigDistance:
         # ]
 
 
-    def plot(self, pairs):
+    def plot_t5_t5_pairs(self, pairs):
+        pass
+
+
+    def plot_t5_pls_pairs(self, pairs):
         for (ev, i_pls, i_t5, dist) in pairs:
             pls_eta, pls_phi = self.data["pLS_eta"][ev][i_pls], self.data["pLS_phi"][ev][i_pls]
             t5_eta, t5_phi = self.data["t5_eta"][ev][i_t5], self.data["t5_phi"][ev][i_t5]
@@ -200,6 +238,25 @@ def load_tracking_ntuple(file_path, branches):
             print(f"Writing tracking ntuple to {parquet_file} ...")
             ak.to_parquet(data, parquet_file)
             return data
+
+
+def load_t5_t5_pairs():
+    with open(PAIRS_T5T5, "rb") as fi:
+        data = pickle.load(fi)
+    return [
+        data["X_left_train"],
+        data["X_left_test"],
+        data["X_right_train"],
+        data["X_right_test"],
+        data["y_t5_train"],
+        data["y_t5_test"],
+        data["w_t5_train"],
+        data["w_t5_test"],
+        data["true_L_train"],
+        data["true_L_test"],
+        data["true_R_train"],
+        data["true_R_test"]
+    ]
 
 
 def load_t5_pls_pairs():
