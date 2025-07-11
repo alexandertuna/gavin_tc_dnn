@@ -4,6 +4,8 @@ from pathlib import Path
 import pickle
 import uproot
 import torch
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 # from preprocess import load_root_file
 from preprocess import branches_list
@@ -34,11 +36,16 @@ def main():
     plotter.load_test_scores()
     plotter.load_tracking_ntuple(TRACKING_NTUPLE, SIM_BRANCHES)
     plotter.load_raw_data(file_path)
-    pairs = plotter.get_pls_t5_pairs_of_interest()
-    plotter.plot_t5_pls_pairs(pairs)
+    # pairs = plotter.get_pls_t5_pairs_of_interest()
+    # plotter.plot_t5_pls_pairs(pairs)
+
+    with PdfPages("duplicates_with_big_distance.pdf") as pdf:
+        plotter.plot_t5_t5_hists(pdf)
 
     pairs_t5t5 = plotter.get_t5_t5_pairs_of_interest()
     plotter.plot_t5_t5_pairs(pairs_t5t5)
+
+
 
 
 class PlotDuplicatesWithBigDistance:
@@ -66,10 +73,10 @@ class PlotDuplicatesWithBigDistance:
         with torch.no_grad():
             x_left = torch.tensor(self.X_left_test[:, :-BONUS_FEATURES])
             x_right = torch.tensor(self.X_right_test[:, :-BONUS_FEATURES])
-            e_l = self.embed_t5(x_left)
-            e_r = self.embed_t5(x_right)
-            self.d_t5t5 = torch.sqrt(((e_l - e_r) ** 2).sum(dim=1, keepdim=True) + 1e-6)
-        self.d_t5t5 = self.d_t5t5.numpy().flatten()
+            self.e_l = self.embed_t5(x_left).detach().numpy()
+            self.e_r = self.embed_t5(x_right).detach().numpy()
+            self.d_t5t5 = np.sqrt(((self.e_l - self.e_r) ** 2).sum(axis=1, keepdims=True) + 1e-6)
+        self.d_t5t5 = self.d_t5t5.flatten()
 
 
     def load_pls_t5_test_scores(self):
@@ -127,7 +134,7 @@ class PlotDuplicatesWithBigDistance:
         pass
 
 
-    def get_t5_t5_pairs_of_interest(self, max_pairs=2):
+    def get_t5_t5_pairs_of_interest(self, max_pairs=1):
         dup_mask = self.y_t5_test == 0
         dup_dist = self.d_t5t5[dup_mask]
         dup_x_l = self.X_left_test[dup_mask]
@@ -140,7 +147,7 @@ class PlotDuplicatesWithBigDistance:
             ev_r, i_r = dup_x_r[idx][-2], dup_x_r[idx][-1]
             if ev_l != ev_r:
                 raise ValueError(f"Event mismatch: {ev_l} != {ev_r}")
-            ret.append( (int(ev_l), int(i_l), int(i_r), dup_dist[idx]) )
+            ret.append( (int(ev_l), int(i_l), int(i_r), idx, dup_dist[idx]) )
         return ret
 
 
@@ -166,7 +173,59 @@ class PlotDuplicatesWithBigDistance:
 
 
     def plot_t5_t5_pairs(self, pairs):
-        pass
+        dup_mask = self.y_t5_test == 0
+        dup_x_l = self.X_left_test[dup_mask]
+        dup_x_r = self.X_right_test[dup_mask]
+
+        dif_lr = dup_x_l[:, :-BONUS_FEATURES] - dup_x_r[:, :-BONUS_FEATURES]
+        std_lr = np.std(dif_lr, axis=0)
+        print(f"Std dev of differences between left and right features: {std_lr.shape}")
+        print(std_lr)
+
+        for (ev, i_l, i_r, idx, dist) in pairs:
+            eta_l, phi_l = self.data["t5_eta"][ev][i_l], self.data["t5_phi"][ev][i_l]
+            eta_r, phi_r = self.data["t5_eta"][ev][i_r], self.data["t5_phi"][ev][i_r]
+            simidx_l = self.data["t5_matched_simIdx"][ev][i_l]
+            simidx_r = self.data["t5_matched_simIdx"][ev][i_r]
+            pmatched_l = self.data["t5_pMatched"][ev][i_l]
+            pmatched_r = self.data["t5_pMatched"][ev][i_r]
+            deltar2 = (eta_l - eta_r) ** 2 + (phi_l - phi_r) ** 2
+            if simidx_l != simidx_r or len(simidx_l) != 1:
+                print("WARNING: simidx are weird!")
+            simidx = simidx_l[0]
+            sim_pt, sim_eta, sim_phi, sim_pdgId = (
+                self.sim["sim_pt"][ev][simidx],
+                self.sim["sim_eta"][ev][simidx],
+                self.sim["sim_phi"][ev][simidx],
+                self.sim["sim_pdgId"][ev][simidx],
+            )
+            feat_l = dup_x_l[idx][:-BONUS_FEATURES]
+            feat_r = dup_x_r[idx][:-BONUS_FEATURES]
+            diff = feat_l - feat_r
+            diff_normed = diff / std_lr
+            xys_l = self.get_xys(ev, i_l)
+            xys_r = self.get_xys(ev, i_r)
+            nequal = sum([1 for xy_l, xy_r in zip(xys_l, xys_r) if xy_l == xy_r])
+            print("")
+            print(f"Event: {ev}")
+            print(f"L index: {i_l}, R index: {i_r}")
+            print(eta_l, phi_l)
+            print(eta_r, phi_r)
+            print(f"simIdx l: {simidx_l}")
+            print(f"simIdx r: {simidx_r}")
+            print(f"pMatched l: {pmatched_l}")
+            print(f"pMatched r: {pmatched_r}")
+            print(f"Delta R2: {deltar2:.3f}")
+            print(f"Delta R: {np.sqrt(deltar2):.3f}")
+            print(f"Distance: {dist:.3f}")
+            print(f"Equal xys: {nequal} / {len(xys_l)}")
+            print(f"Feat L: {feat_l}")
+            print(f"Feat R: {feat_r}")
+            print(f"Diff: {diff}")
+            print(f"Normed diff: {diff_normed}")
+            print(f"Sim index: {simidx} vs len(sim_pt): {len(self.sim['sim_pt'][ev])}")
+            print(f"Sim: {sim_pdgId} pt={sim_pt:6.2f}, eta={sim_eta:6.3f}, phi={sim_phi:6.3f}")
+            print("")
 
 
     def plot_t5_pls_pairs(self, pairs):
@@ -200,16 +259,56 @@ class PlotDuplicatesWithBigDistance:
             print(f"Sim index: {simidx} vs len(sim_pt): {len(self.sim['sim_pt'][ev])}")
             print(f"Sim: {sim_pdgId} pt={sim_pt:6.2f}, eta={sim_eta:6.3f}, phi={sim_phi:6.3f}")
             print("")
-            # for xev in range(1000):
-            #     sim_pt, sim_eta, sim_phi, sim_pdgId = (
-            #         self.sim["sim_pt"][xev][simidx],
-            #         self.sim["sim_eta"][xev][simidx],
-            #         self.sim["sim_phi"][xev][simidx],
-            #         self.sim["sim_pdgId"][xev][simidx],
-            #     )
-            #     dr = np.sqrt((pls_eta - sim_eta) ** 2 + (pls_phi - sim_phi) ** 2)
-            #     blob = " <-- " if dr < 0.2 else ""
-            #     print(f"  {xev} Sim: {sim_pdgId:5} pt={sim_pt:6.2f}, eta={sim_eta:6.3f}, phi={sim_phi:6.3f}  --  DR: {dr:.3f} {blob}")
+
+
+    def get_xys(self, ev, t5):
+        triplets = [0, 1]
+        layers = [0, 1, 2, 3, 4, 5]
+        xys = []
+        for triplet in triplets:
+            for layer in layers:
+                # Skip hits shared between triplets
+                if triplet == 0 and layer in [4, 5]:
+                    continue
+                idx = self.data[f"t5_t3_idx{triplet}"][ev][t5]
+                x = self.data[f"t5_t3_{layer}_x"][ev][idx]
+                y = self.data[f"t5_t3_{layer}_y"][ev][idx]
+                # print(f"T5 {t5}, triplet {triplet}, layer {layer}: x={x:.4f}, y={y:.4f}")
+                xys.append((x, y))
+        return xys
+
+
+    def plot_t5_t5_hists(self, pdf: PdfPages):
+        dup_mask = self.y_t5_test == 0
+        dup_x_l = self.X_left_test[dup_mask]
+        dup_x_r = self.X_right_test[dup_mask]
+        dup_e_l = self.e_l[dup_mask]
+        dup_e_r = self.e_r[dup_mask]
+
+        dx_lr = dup_x_l[:, :-BONUS_FEATURES] - dup_x_r[:, :-BONUS_FEATURES]
+        n_features = dx_lr.shape[1]
+        for feat in range(n_features):
+            name = feature_names(feat)
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.hist(dx_lr[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})")
+            ax.set_xlabel(f"Difference between left and right feature {feat} ({name})")
+            ax.set_ylabel("Count")
+            ax.set_title(f"Feature {feat} differences between left and right T5 features")
+            ax.legend()
+            pdf.savefig()
+            plt.close()
+
+        de_lr = dup_e_l - dup_e_r
+        n_emb = dup_e_l.shape[1]
+        for emb in range(n_emb):
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.hist(de_lr[:, emb], bins=100, histtype="step", label=f"Embedding {emb}")
+            ax.set_xlabel(f"Difference between left and right embedding {emb}")
+            ax.set_ylabel("Count")
+            ax.set_title(f"Embedding {emb} differences between left and right T5 embeddings")
+            ax.legend()
+            pdf.savefig()
+            plt.close()
 
 
 
@@ -272,6 +371,48 @@ def load_t5_pls_pairs():
         data["w_pls_train"],
         data["w_pls_test"],
     ]
+
+
+def feature_names(index: int) -> str:
+    return [
+        "eta1 / ETA_MAX",
+        "np.cos(phi1)",
+        "np.sin(phi1)",
+        "z1 / z_max",
+        "r1 / r_max",
+
+        "eta2 - abs(eta1)",
+        "delta_phi(phi2, phi1)",
+        "(z2 - z1) / z_max",
+        "(r2 - r1) / r_max",
+
+        "eta3 - eta2",
+        "delta_phi(phi3, phi2)",
+        "(z3 - z2) / z_max",
+        "(r3 - r2) / r_max",
+
+        "eta4 - eta3",
+        "delta_phi(phi4, phi3)",
+        "(z4 - z3) / z_max",
+        "(r4 - r3) / r_max",
+
+        "eta5 - eta4",
+        "delta_phi(phi5, phi4)",
+        "(z5 - z4) / z_max",
+        "(r5 - r4) / r_max",
+
+        "1.0 / inR",
+        "1.0 / brR",
+        "1.0 / outR",
+
+        "s1_fake", "s1_prompt", "s1_disp",
+        "d_fake",  "d_prompt",  "d_disp",
+
+        # bonus features
+        # "ev",
+        # "i",
+    ][index]
+
 
 
 if __name__ == "__main__":
