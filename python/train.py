@@ -24,6 +24,7 @@ os.environ["PYTHONHASHSEED"] = str(42)
 class Trainer:
 
     def __init__(self,
+                 bonus_features,
                  X_left_train,
                  X_left_test,
                  X_right_train,
@@ -43,6 +44,18 @@ class Trainer:
                  w_pls_test,
                  ):
 
+        def remove_bonus_features(X):
+            return X[:, :-bonus_features] if bonus_features > 0 else X
+        X_left_train  = remove_bonus_features(X_left_train)
+        X_left_test   = remove_bonus_features(X_left_test)
+        X_right_train = remove_bonus_features(X_right_train)
+        X_right_test  = remove_bonus_features(X_right_test)
+        X_pls_train   = remove_bonus_features(X_pls_train)
+        X_pls_test    = remove_bonus_features(X_pls_test)
+        X_t5raw_train = remove_bonus_features(X_t5raw_train)
+        X_t5raw_test  = remove_bonus_features(X_t5raw_test)
+
+        # store data
         self.X_left_test = X_left_test
         self.X_right_test = X_right_test
         self.X_pls_test = X_pls_test

@@ -2,15 +2,9 @@ import os
 import pickle
 import uproot
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from pathlib import Path
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
 import random
-import awkward as ak # Using awkward array for easier handling of jagged data
 import time # For timing steps
 from tqdm import tqdm
 
@@ -29,6 +23,8 @@ os.environ["PYTHONHASHSEED"] = str(42)
 
 DELTA_R2_CUT = 0.02
 ETA_MAX = 2.5
+
+BONUS_FEATURES = 2
 
 # pairing hyper-parameters
 DELTA_R2_CUT_PLS_T5 = 0.02
@@ -109,8 +105,8 @@ branches_list += [
 ]
 
 # Hit-dependent branches
-suffixes = ['r', 'z', 'eta', 'phi', 'layer']
-branches_list += [f't5_t3_{i}_{suffix}' for i in [0, 2, 4] for suffix in suffixes]
+suffixes = ['x', 'y', 'r', 'z', 'eta', 'phi', 'layer']
+branches_list += [f't5_t3_{i}_{suffix}' for i in [0, 1, 2, 3, 4, 5] for suffix in suffixes]
 
 def delta_phi(phi1, phi2):
     delta = phi1 - phi2
@@ -174,6 +170,7 @@ class Preprocessor:
 
     def __init__(self, root_path):
 
+        self.bonus_features = BONUS_FEATURES
         self.root_path = root_path
         branches = self.load_root_file(root_path) if not LOAD_FEATURES else None
 
@@ -456,7 +453,11 @@ class Preprocessor:
                     1.0 / outR,
 
                     s1_fake, s1_prompt, s1_disp,
-                    d_fake,  d_prompt,  d_disp
+                    d_fake,  d_prompt,  d_disp,
+
+                    # bonus features
+                    ev,
+                    i,
                 ]
                 feat_evt.append(f)
                 eta_evt.append(eta1)
@@ -539,6 +540,10 @@ class Preprocessor:
                     np.log10(circleCenterX),
                     np.log10(circleCenterY),
                     np.log10(circleRadius),
+
+                    # bonus features
+                    ev,
+                    i,
                 ]
 
                 feat_evt.append(f)
