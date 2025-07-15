@@ -5,6 +5,7 @@ import pickle
 import uproot
 import torch
 import matplotlib.pyplot as plt
+from matplotlib import colors
 from matplotlib.backends.backend_pdf import PdfPages
 
 # from preprocess import load_root_file
@@ -34,16 +35,17 @@ def main():
     plotter.load_t5_t5_pairs()
     plotter.load_t5_pls_pairs()
     plotter.load_test_scores()
-    plotter.load_tracking_ntuple(TRACKING_NTUPLE, SIM_BRANCHES)
-    plotter.load_raw_data(file_path)
+    # plotter.load_tracking_ntuple(TRACKING_NTUPLE, SIM_BRANCHES)
+    # plotter.load_raw_data(file_path)
     # pairs = plotter.get_pls_t5_pairs_of_interest()
     # plotter.plot_t5_pls_pairs(pairs)
 
     with PdfPages("duplicates_with_big_distance.pdf") as pdf:
         plotter.plot_t5_t5_hists(pdf)
+        plotter.plot_t5_pls_hists(pdf)
 
-    pairs_t5t5 = plotter.get_t5_t5_pairs_of_interest()
-    plotter.plot_t5_t5_pairs(pairs_t5t5)
+    # pairs_t5t5 = plotter.get_t5_t5_pairs_of_interest()
+    # plotter.plot_t5_t5_pairs(pairs_t5t5)
 
 
 
@@ -84,10 +86,10 @@ class PlotDuplicatesWithBigDistance:
         with torch.no_grad():
             x_pls = torch.tensor(self.X_pls_test[:, :-BONUS_FEATURES])
             x_t5 = torch.tensor(self.X_t5raw_test[:, :-BONUS_FEATURES])
-            e_pls = self.embed_pls(x_pls)
-            e_t5 = self.embed_t5(x_t5)
-            self.d_plst5 = torch.sqrt(((e_pls - e_t5) ** 2).sum(dim=1, keepdim=True) + 1e-6)
-        self.d_plst5 = self.d_plst5.numpy().flatten()
+            self.e_pls = self.embed_pls(x_pls).detach().numpy()
+            self.e_t5 = self.embed_t5(x_t5).detach().numpy()
+            self.d_plst5 = np.sqrt(((self.e_pls - self.e_t5) ** 2).sum(axis=1, keepdims=True) + 1e-6)
+        self.d_plst5 = self.d_plst5.flatten()
 
 
     def load_raw_data(self, file_path):
@@ -279,37 +281,240 @@ class PlotDuplicatesWithBigDistance:
 
 
     def plot_t5_t5_hists(self, pdf: PdfPages):
-        dup_mask = self.y_t5_test == 0
-        dup_x_l = self.X_left_test[dup_mask]
-        dup_x_r = self.X_right_test[dup_mask]
-        dup_e_l = self.e_l[dup_mask]
-        dup_e_r = self.e_r[dup_mask]
+        sim_mask = self.y_t5_test == 0
 
-        dx_lr = dup_x_l[:, :-BONUS_FEATURES] - dup_x_r[:, :-BONUS_FEATURES]
-        n_features = dx_lr.shape[1]
+        # duplicates (similar)
+        sim_x_l = self.X_left_test[sim_mask]
+        sim_x_r = self.X_right_test[sim_mask]
+        sim_e_l = self.e_l[sim_mask]
+        sim_e_r = self.e_r[sim_mask]
+
+        # non-duplicates (dissimilar)
+        dis_x_l = self.X_left_test[~sim_mask]
+        dis_x_r = self.X_right_test[~sim_mask]
+        dis_e_l = self.e_l[~sim_mask]
+        dis_e_r = self.e_r[~sim_mask]
+
+        sim_dx_lr = sim_x_l[:, :-BONUS_FEATURES] - sim_x_r[:, :-BONUS_FEATURES]
+        dis_dx_lr = dis_x_l[:, :-BONUS_FEATURES] - dis_x_r[:, :-BONUS_FEATURES]
+
+        # 1D histograms of feature differences
+        n_features = sim_dx_lr.shape[1]
         for feat in range(n_features):
-            name = feature_names(feat)
+            name = t5_feature_names(feat)
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(dx_lr[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})")
+            ax.hist(sim_dx_lr[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})", color="blue")
+            ax.hist(dis_dx_lr[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})", color="red")
             ax.set_xlabel(f"Difference between left and right feature {feat} ({name})")
             ax.set_ylabel("Count")
             ax.set_title(f"Feature {feat} differences between left and right T5 features")
+            ax.tick_params(top=True, right=True, which="both", direction="in")
             ax.legend()
             pdf.savefig()
             plt.close()
 
-        de_lr = dup_e_l - dup_e_r
-        n_emb = dup_e_l.shape[1]
+        # 1D histograms of embedding differences
+        sim_de_lr = sim_e_l - sim_e_r
+        dis_de_lr = dis_e_l - dis_e_r
+        n_emb = sim_e_l.shape[1]
         for emb in range(n_emb):
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(de_lr[:, emb], bins=100, histtype="step", label=f"Embedding {emb}")
+            ax.hist(sim_de_lr[:, emb], bins=100, histtype="step", label=f"Embedding {emb}", color="blue")
+            ax.hist(dis_de_lr[:, emb], bins=100, histtype="step", label=f"Embedding {emb}", color="red")
             ax.set_xlabel(f"Difference between left and right embedding {emb}")
             ax.set_ylabel("Count")
             ax.set_title(f"Embedding {emb} differences between left and right T5 embeddings")
+            ax.tick_params(top=True, right=True, which="both", direction="in")
             ax.legend()
             pdf.savefig()
             plt.close()
 
+        # 2D histograms of feature differences and embedding differences
+        fig_per_row = 3
+        if n_emb % fig_per_row > 0:
+            raise ValueError(f"Number of embeddings {n_emb} is not divisible by {fig_per_row}")
+
+        for feat in range(n_features):
+
+            name = t5_feature_names(feat)
+            print(f"Plotting feature {feat} vs embeddings ...")
+            #if feat > 1:
+            #   break
+
+            # duplicates (similar)
+            fig, axs = plt.subplots(figsize=(16, 8), ncols=fig_per_row, nrows=n_emb // fig_per_row)
+            for emb in range(n_emb):
+                ax = axs[emb // fig_per_row, emb % fig_per_row]
+                _, _, _, im = ax.hist2d(sim_dx_lr[:, feat], sim_de_lr[:, emb], bins=100, cmap="Blues", cmin=0.5, norm=colors.LogNorm())
+                ax.set_xlabel(f"Feature {feat} difference")
+                ax.set_ylabel(f"Embedding {emb} difference")
+                ax.set_title(f"{name} vs Emb. {emb} (duplicates)")
+                ax.tick_params(top=True, right=True, which="both", direction="in")
+                ax.grid(alpha=0.3)
+                fig.colorbar(im, ax=ax, label="Track pairs")
+                fig.subplots_adjust(hspace=0.3, wspace=0.3, right=0.98, left=0.05, bottom=0.05, top=0.95)
+            pdf.savefig()
+            plt.close()
+
+            # non-duplicates (dissimilar)
+            fig, axs = plt.subplots(figsize=(16, 8), ncols=fig_per_row, nrows=n_emb // fig_per_row)
+            for emb in range(n_emb):
+                ax = axs[emb // fig_per_row, emb % fig_per_row]
+                _, _, _, im = ax.hist2d(dis_dx_lr[:, feat], dis_de_lr[:, emb], bins=100, cmap="Reds", cmin=0.5, norm=colors.LogNorm())
+                ax.set_xlabel(f"Feature {feat} difference")
+                ax.set_ylabel(f"Embedding {emb} difference")
+                ax.set_title(f"{name} vs Emb. {emb} (non-duplicates)")
+                ax.tick_params(top=True, right=True, which="both", direction="in")
+                ax.grid(alpha=0.3)
+                fig.colorbar(im, ax=ax, label="Track pairs")
+                fig.subplots_adjust(hspace=0.3, wspace=0.3, right=0.98, left=0.05, bottom=0.05, top=0.95)
+                fig.subplots_adjust(hspace=0.3, wspace=0.3, right=0.98, left=0.05, bottom=0.05, top=0.95)
+            pdf.savefig()
+            plt.close()
+
+
+    def plot_t5_pls_hists(self, pdf: PdfPages):
+        sim_mask = self.y_pls_test == 0
+
+        # duplicates (similar)
+        sim_x_pls = self.X_pls_test[sim_mask][:, :-BONUS_FEATURES]
+        sim_x_t5 = self.X_t5raw_test[sim_mask][:, :-BONUS_FEATURES]
+        sim_e_pls = self.e_pls[sim_mask]
+        sim_e_t5 = self.e_t5[sim_mask]
+        sim_de = sim_e_pls - sim_e_t5
+
+        # non-duplicates (dissimilar)
+        dis_x_pls = self.X_pls_test[~sim_mask][:, :-BONUS_FEATURES]
+        dis_x_t5 = self.X_t5raw_test[~sim_mask][:, :-BONUS_FEATURES]
+        dis_e_pls = self.e_pls[~sim_mask]
+        dis_e_t5 = self.e_t5[~sim_mask]
+        dis_de = dis_e_pls - dis_e_t5
+
+        # 1D histograms of features (t5)
+        n_features_t5 = sim_x_t5.shape[1]
+        for feat in range(n_features_t5):
+            name = t5_feature_names(feat)
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.hist(sim_x_t5[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})", color="blue")
+            ax.hist(dis_x_t5[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})", color="red")
+            ax.set_xlabel(f"T5 Feature {feat} ({name})")
+            ax.set_ylabel("Count")
+            ax.set_title(f"T5 Feature {feat} ({name}) distribution")
+            ax.tick_params(top=True, right=True, which="both", direction="in")
+            ax.legend()
+            pdf.savefig()
+            plt.close()
+
+        # 1D histograms of features (pls)
+        n_features_pls = sim_x_pls.shape[1]
+        for feat in range(n_features_pls):
+            name = pls_feature_names(feat)
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.hist(sim_x_pls[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})", color="blue")
+            ax.hist(dis_x_pls[:, feat], bins=100, histtype="step", label=f"Feature {feat} ({name})", color="red")
+            ax.set_xlabel(f"PLS Feature {feat} ({name})")
+            ax.set_ylabel("Count")
+            ax.set_title(f"PLS Feature {feat} ({name}) distribution")
+            ax.tick_params(top=True, right=True, which="both", direction="in")
+            ax.legend()
+            pdf.savefig()
+            plt.close()
+
+        # 1D histograms of embedding differences
+        sim_de_plst5 = sim_e_pls - sim_e_t5
+        dis_de_plst5 = dis_e_pls - dis_e_t5
+        n_emb = sim_e_pls.shape[1]
+        for emb in range(n_emb):
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.hist(sim_de_plst5[:, emb], bins=100, histtype="step", label=f"Embedding {emb}", color="blue")
+            ax.hist(dis_de_plst5[:, emb], bins=100, histtype="step", label=f"Embedding {emb}", color="red")
+            ax.set_xlabel(f"Difference between left and right embedding {emb}")
+            ax.set_ylabel("Count")
+            ax.set_title(f"Embedding {emb} differences between left and right PLS and T5 embeddings")
+            ax.tick_params(top=True, right=True, which="both", direction="in")
+            ax.legend()
+            pdf.savefig()
+            plt.close()
+
+        # a subset of 2D feature differences
+        # (T5, PLS)
+        feats = [
+            (0, 0),
+            (1, 2),
+            (2, 3),
+            (21, 9),
+            (22, 9),
+            (23, 9),
+            (26, 7),
+            (26, 8),
+        ]
+
+        # 2D histograms of feature differences and embedding differences
+        fig_per_row = 3
+        if n_emb % fig_per_row > 0:
+            raise ValueError(f"Number of embeddings {n_emb} is not divisible by {fig_per_row}")
+        for it, (feat_t5, feat_pls) in enumerate(feats):
+
+            name_t5 = t5_feature_names(feat_t5)
+            name_pls = pls_feature_names(feat_pls)
+            print(f"Plotting feature {feat_t5} vs embeddings ...")
+            # if it > 3:
+            #     break
+
+            # transforming features to make them comparable
+            def transform_t5(x, feat):
+                if feat == 0:
+                    return x[:, feat] * 2.5
+                if feat in [21, 22, 23]:
+                    return x[:, feat] # ** -1.0
+                return x[:, feat]
+
+            def transform_pls(x, feat):
+                if feat == 0:
+                    return x[:, feat] * 4.0
+                if feat in [7, 8, 9]:
+                    return (10 ** x[:, feat]) ** -1.0
+                return x[:, feat]
+
+            # transform them (similar)
+            f_t5 = transform_t5(sim_x_t5, feat_t5)
+            f_pls = transform_pls(sim_x_pls, feat_pls)
+            sim_dx = f_t5 - f_pls
+
+            # duplicates (similar)
+            fig, axs = plt.subplots(figsize=(16, 8), ncols=fig_per_row, nrows=n_emb // fig_per_row)
+            for emb in range(n_emb):
+                ax = axs[emb // fig_per_row, emb % fig_per_row]
+                _, _, _, im = ax.hist2d(sim_dx, sim_de[:, emb], bins=100, cmap="Blues", cmin=0.5, norm=colors.LogNorm())
+                ax.set_xlabel(f"{name_t5} - {name_pls}")
+                ax.set_ylabel(f"Embedding {emb} difference")
+                ax.set_title(f"{name_t5} - {name_pls} vs Emb. {emb} (duplicates)")
+                ax.tick_params(top=True, right=True, which="both", direction="in")
+                ax.grid(alpha=0.3)
+                fig.colorbar(im, ax=ax, label="Track pairs")
+                fig.subplots_adjust(hspace=0.3, wspace=0.3, right=0.98, left=0.05, bottom=0.05, top=0.95)
+            pdf.savefig()
+            plt.close()
+
+            # transform them (dissimilar)
+            f_t5 = transform_t5(dis_x_t5, feat_t5)
+            f_pls = transform_pls(dis_x_pls, feat_pls)
+            dis_dx = f_t5 - f_pls
+
+            # duplicates (dissimilar)
+            fig, axs = plt.subplots(figsize=(16, 8), ncols=fig_per_row, nrows=n_emb // fig_per_row)
+            for emb in range(n_emb):
+                ax = axs[emb // fig_per_row, emb % fig_per_row]
+                _, _, _, im = ax.hist2d(dis_dx, dis_de[:, emb], bins=100, cmap="Reds", cmin=0.5, norm=colors.LogNorm())
+                ax.set_xlabel(f"{name_t5} - {name_pls}")
+                ax.set_ylabel(f"Embedding {emb} difference")
+                ax.set_title(f"{name_t5} - {name_pls} vs Emb. {emb} (non-duplicates)")
+                ax.tick_params(top=True, right=True, which="both", direction="in")
+                ax.grid(alpha=0.3)
+                fig.colorbar(im, ax=ax, label="Track pairs")
+                fig.subplots_adjust(hspace=0.3, wspace=0.3, right=0.98, left=0.05, bottom=0.05, top=0.95)
+            pdf.savefig()
+            plt.close()
 
 
 def load_root_file_ak(file_path, branches):
@@ -373,9 +578,9 @@ def load_t5_pls_pairs():
     ]
 
 
-def feature_names(index: int) -> str:
+def t5_feature_names(index: int) -> str:
     return [
-        "eta1 / ETA_MAX",
+        "eta1 / 2.5",
         "np.cos(phi1)",
         "np.sin(phi1)",
         "z1 / z_max",
@@ -413,6 +618,20 @@ def feature_names(index: int) -> str:
         # "i",
     ][index]
 
+
+def pls_feature_names(index: int) -> str:
+    return [
+        "eta/4.0",
+        "etaErr/.00139",
+        "np.cos(phi)",
+        "np.sin(phi)",
+        "1.0 / ptIn",
+        "np.log10(ptErr)",
+        "isQuad",
+        "np.log10(circleCenterX)",
+        "np.log10(circleCenterY)",
+        "np.log10(circleRadius)",
+    ][index]
 
 
 if __name__ == "__main__":
