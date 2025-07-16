@@ -17,16 +17,14 @@ from ml import SiameseDataset, PLST5Dataset, EmbeddingNetT5, EmbeddingNetpLS, Co
 ETA_MAX = 2.5
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-torch.manual_seed(42)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(42)
-os.environ["PYTHONHASHSEED"] = str(42)
 
 class Trainer:
 
     def __init__(self,
+                 seed: int,
                  emb_dim: int,
                  bonus_features,
+                 # ------------
                  X_left_train,
                  X_left_test,
                  X_right_train,
@@ -45,6 +43,10 @@ class Trainer:
                  w_pls_train,
                  w_pls_test,
                  ):
+
+        if seed is not None:
+            torch.manual_seed(seed)
+            os.environ["PYTHONHASHSEED"] = str(seed)
 
         def remove_bonus_features(X):
             return X[:, :-bonus_features] if bonus_features > 0 else X
@@ -102,6 +104,13 @@ class Trainer:
             list(self.embed_t5.parameters()) + list(self.embed_pls.parameters()),
             lr=0.0025
         )
+
+
+    def set_seed(self, seed: int):
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+        os.environ["PYTHONHASHSEED"] = str(seed)
 
 
     def train(self, num_epochs: int = 200):

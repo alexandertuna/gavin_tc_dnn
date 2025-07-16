@@ -27,6 +27,8 @@ def options():
                         help="Dimensionality of the embedding space")
     parser.add_argument("--num_epochs", type=int, default=200,
                         help="Number of epochs for training the model")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed for reproducibility")
     return parser.parse_args()
 
 
@@ -48,7 +50,9 @@ def main():
         processor.speed_test()
 
     # ML training
-    trainer = Trainer(args.emb_dim,
+    trainer = Trainer(args.seed,
+                      args.emb_dim,
+                      # --------------------
                       processor.bonus_features,
                       processor.X_left_train,
                       processor.X_left_test,
