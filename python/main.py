@@ -29,6 +29,10 @@ def options():
                         help="Number of epochs for training the model")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed for reproducibility")
+    parser.add_argument("--load_features", action="store_true",
+                        help="Flag to load precomputed features instead of computing them from scratch")
+    parser.add_argument("--load_pairs", action="store_true",
+                        help="Flag to load precomputed pairs instead of computing them from scratch")
     return parser.parse_args()
 
 
@@ -41,7 +45,9 @@ def main():
     pdf_path = Path(args.pdf)
 
     # Data processing
-    processor = Preprocessor(file_path)
+    processor = Preprocessor(file_path,
+                             args.load_features,
+                             args.load_pairs)
 
     # Tests?
     if args.parallelism_test:

@@ -34,10 +34,8 @@ MAX_SIM            = 1000
 MAX_DIS            = 1000
 
 # intermediate data
-LOAD_FEATURES = False
 FEATURES_T5 = Path("features_t5.pkl")
 FEATURES_PLS = Path("features_pls.pkl")
-LOAD_PAIRS = False
 PAIRS_T5T5 = Path("pairs_t5t5.pkl")
 PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 
@@ -168,22 +166,24 @@ def load_t5_pls_pairs():
 
 class Preprocessor:
 
-    def __init__(self, root_path):
+    def __init__(self, root_path, LOAD_FEATURES, LOAD_PAIRS):
 
         self.bonus_features = BONUS_FEATURES
+        self.LOAD_FEATURES = LOAD_FEATURES
+        self.LOAD_PAIRS = LOAD_PAIRS
         self.root_path = root_path
-        branches = self.load_root_file(root_path) if not LOAD_FEATURES else None
+        branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
 
         print("Getting T5 features")
         [features_per_event,
          displaced_per_event,
-         sim_indices_per_event] = self.get_t5_features(branches) if not LOAD_FEATURES else load_t5_features()
+         sim_indices_per_event] = self.get_t5_features(branches) if not self.LOAD_FEATURES else load_t5_features()
         self.features_per_event = features_per_event
         self.sim_indices_per_event = sim_indices_per_event
 
         print("Getting PLS features")
         [pLS_features_per_event,
-         pLS_sim_indices_per_event] = self.get_pls_features(branches) if not LOAD_FEATURES else load_pls_features()
+         pLS_sim_indices_per_event] = self.get_pls_features(branches) if not self.LOAD_FEATURES else load_pls_features()
 
         print("Getting T5-T5 pairs")
         [self.X_left_train,
@@ -200,7 +200,7 @@ class Preprocessor:
          self.true_R_test
          ] = self.get_t5_pairs(features_per_event,
                                displaced_per_event,
-                               sim_indices_per_event) if not LOAD_PAIRS else load_t5_t5_pairs()
+                               sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_t5_pairs()
 
         print("Getting PLS-T5 pairs")
         [self.X_pls_train,
@@ -215,7 +215,7 @@ class Preprocessor:
                                    pLS_sim_indices_per_event,
                                    features_per_event,
                                    displaced_per_event,
-                                   sim_indices_per_event) if not LOAD_PAIRS else load_t5_pls_pairs()
+                                   sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_pls_pairs()
 
 
     def load_root_file(self, root_path):
@@ -225,7 +225,7 @@ class Preprocessor:
 
     def speed_test(self):
 
-        if not LOAD_FEATURES:
+        if not self.LOAD_FEATURES:
             raise ValueError("LOAD_FEATURES must be True to run the speed test")
 
         # load T5 and pLS features
@@ -310,7 +310,7 @@ class Preprocessor:
 
     def parallelism_test(self):
 
-        if not LOAD_FEATURES:
+        if not self.LOAD_FEATURES:
             raise ValueError("LOAD_FEATURES must be True to run the speed test")
 
         # load T5 and pLS features
