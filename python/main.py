@@ -25,6 +25,8 @@ def options():
                         help="Flag to load the model; if not set, the model will be trained")
     parser.add_argument("--emb_dim", type=int, default=6,
                         help="Dimensionality of the embedding space")
+    parser.add_argument("--num_epochs", type=int, default=200,
+                        help="Number of epochs for training the model")
     return parser.parse_args()
 
 
@@ -68,7 +70,7 @@ def main():
                       )
 
     if not args.load_model:
-        trainer.train(num_epochs=5)
+        trainer.train(num_epochs=args.num_epochs)
         # trainer.print_thresholds()
         # trainer.print_weights_biases()
         trainer.save(model_path)
