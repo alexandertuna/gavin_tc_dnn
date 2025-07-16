@@ -1,6 +1,7 @@
 import awkward as ak
 import numpy as np
 from pathlib import Path
+import copy
 import pickle
 import uproot
 import torch
@@ -34,6 +35,7 @@ def main():
     plotter.load_network(network)
     plotter.load_t5_t5_pairs()
     plotter.load_t5_pls_pairs()
+    plotter.humanize_t5_t5_pairs()
     plotter.load_test_scores()
     # plotter.load_tracking_ntuple(TRACKING_NTUPLE, SIM_BRANCHES)
     # plotter.load_raw_data(file_path)
@@ -42,7 +44,7 @@ def main():
 
     with PdfPages("duplicates_with_big_distance.pdf") as pdf:
         plotter.plot_t5_t5_hists(pdf)
-        plotter.plot_t5_pls_hists(pdf)
+        # plotter.plot_t5_pls_hists(pdf)
 
     # pairs_t5t5 = plotter.get_t5_t5_pairs_of_interest()
     # plotter.plot_t5_t5_pairs(pairs_t5t5)
@@ -119,6 +121,29 @@ class PlotDuplicatesWithBigDistance:
          ] = load_t5_t5_pairs()
 
 
+    def humanize_t5_t5_pairs(self):
+        print("Humanizing T5-T5 pairs")
+        ETAMAX = 2.5
+        ZMAX = 267.2349853515625
+        RMAX = 110.10993957519531
+        for attr in ["X_left_test",
+                     "X_right_test"]:
+            x = copy.deepcopy(getattr(self, attr))
+            x = x[:, :-BONUS_FEATURES]
+            x[:, 0] *= ETAMAX
+            x[:, 3] *= ZMAX
+            x[:, 4] *= RMAX
+            x[:, 7] *= ZMAX
+            x[:, 8] *= RMAX
+            x[:, 11] *= ZMAX
+            x[:, 12] *= RMAX
+            x[:, 15] *= ZMAX
+            x[:, 16] *= RMAX
+            x[:, 19] *= ZMAX
+            x[:, 20] *= RMAX
+            setattr(self, attr + "_human", x)
+
+
     def load_t5_pls_pairs(self):
         print("Getting PLS-T5 pairs")
         [self.X_pls_train,
@@ -130,10 +155,6 @@ class PlotDuplicatesWithBigDistance:
          self.w_pls_train,
          self.w_pls_test,
          ] = load_t5_pls_pairs()
-
-
-    def get_t5_features(self):
-        pass
 
 
     def get_t5_t5_pairs_of_interest(self, max_pairs=1):
@@ -284,19 +305,20 @@ class PlotDuplicatesWithBigDistance:
         sim_mask = self.y_t5_test == 0
 
         # duplicates (similar)
-        sim_x_l = self.X_left_test[sim_mask]
-        sim_x_r = self.X_right_test[sim_mask]
+        sim_x_l = self.X_left_test_human[sim_mask]
+        sim_x_r = self.X_right_test_human[sim_mask]
         sim_e_l = self.e_l[sim_mask]
         sim_e_r = self.e_r[sim_mask]
 
         # non-duplicates (dissimilar)
-        dis_x_l = self.X_left_test[~sim_mask]
-        dis_x_r = self.X_right_test[~sim_mask]
+        dis_x_l = self.X_left_test_human[~sim_mask]
+        dis_x_r = self.X_right_test_human[~sim_mask]
         dis_e_l = self.e_l[~sim_mask]
         dis_e_r = self.e_r[~sim_mask]
 
-        sim_dx_lr = sim_x_l[:, :-BONUS_FEATURES] - sim_x_r[:, :-BONUS_FEATURES]
-        dis_dx_lr = dis_x_l[:, :-BONUS_FEATURES] - dis_x_r[:, :-BONUS_FEATURES]
+        # differences
+        sim_dx_lr = sim_x_l - sim_x_r
+        dis_dx_lr = dis_x_l - dis_x_r
 
         # 1D histograms of feature differences
         n_features = sim_dx_lr.shape[1]
@@ -329,6 +351,31 @@ class PlotDuplicatesWithBigDistance:
             pdf.savefig()
             plt.close()
 
+        # binning choices
+        bins = {}
+        bins["embed", "sim", 0] = np.linspace(-0.3, 0.3, 101)
+        bins["embed", "sim", 1] = np.linspace(-0.3, 0.3, 101)
+        bins["embed", "sim", 2] = np.linspace(-0.4, 0.4, 101)
+        bins["embed", "sim", 3] = np.linspace(-0.4, 0.4, 101)
+        bins["embed", "sim", 4] = np.linspace(-0.05, 0.05, 101)
+        bins["embed", "sim", 5] = np.linspace(-0.4, 0.4, 101)
+        bins["embed", "dis", 0] = np.linspace(-3, 3, 101)
+        bins["embed", "dis", 1] = np.linspace(-2, 2, 101)
+        bins["embed", "dis", 2] = np.linspace(-5, 5, 101)
+        bins["embed", "dis", 3] = np.linspace(-3, 3, 101)
+        bins["embed", "dis", 4] = np.linspace(-0.3, 0.3, 101)
+        bins["embed", "dis", 5] = np.linspace(-2, 2, 101)
+
+        bins["feat", 0] = np.linspace(-0.14, 0.14, 101)
+        bins["feat", 1] = np.linspace(-0.10, 0.10, 101)
+        bins["feat", 2] = np.linspace(-0.10, 0.10, 101)
+        bins["feat", 3] = np.linspace(-60, 60, 101)
+        bins["feat", 4] = np.linspace(-20, 20, 101)
+        bins["feat", 5] = np.linspace(-0.15, 0.15, 101)
+
+        bins["dist", "sim"] = np.linspace(0, 0.5, 101)
+        bins["dist", "dis"] = np.linspace(0, 8.0, 101)
+
         # 2D histograms of feature differences and embedding differences
         fig_per_row = 3
         if n_emb % fig_per_row > 0:
@@ -338,14 +385,43 @@ class PlotDuplicatesWithBigDistance:
 
             name = t5_feature_names(feat)
             print(f"Plotting feature {feat} vs embeddings ...")
-            #if feat > 1:
-            #   break
+            feature_bins = 100 # bins["feat", feat]
+
+            #if feat > 4:
+            #    break
+
+            # total distance
+            for sample in ["sim", "dis"]:
+                dist_bins = bins["dist", sample]
+                for norm in [None, colors.LogNorm()]:
+                    fig, axs = plt.subplots(figsize=(12, 4), ncols=2)
+                    for iax, (dx_lr, de_lr, title) in enumerate([
+                        (sim_dx_lr, sim_de_lr, "Duplicates"),
+                        (dis_dx_lr, dis_de_lr, "Non-duplicates"),
+                    ]):
+                        if iax == 0:
+                            mask = sim_x_l[:, feat] != sim_x_r[:, feat]
+                        else:
+                            mask = dis_x_l[:, feat] != dis_x_r[:, feat]
+                        excl = np.sum(~mask) / len(mask) * 100.0
+                        ax = axs[iax]
+                        _, _, _, im = ax.hist2d(dx_lr[mask][:, feat], np.sqrt(de_lr[mask] ** 2).sum(axis=1), bins=(feature_bins, dist_bins), cmap="Greens", cmin=0.5, norm=norm)
+                        ax.set_xlabel(f"Feature {feat} difference")
+                        ax.set_ylabel(f"Embedding difference")
+                        ax.set_title(f"{name} vs Emb. ({title}) (Excl: {int(excl)}%)")
+                        ax.tick_params(top=True, right=True, which="both", direction="in")
+                        ax.grid(alpha=0.3)
+                        fig.colorbar(im, ax=ax, label="Track pairs")
+                        fig.subplots_adjust(hspace=0.3, wspace=0.3, right=0.98, left=0.05, bottom=0.10, top=0.90)
+                    pdf.savefig()
+                    plt.close()
+
 
             # duplicates (similar)
             fig, axs = plt.subplots(figsize=(16, 8), ncols=fig_per_row, nrows=n_emb // fig_per_row)
             for emb in range(n_emb):
                 ax = axs[emb // fig_per_row, emb % fig_per_row]
-                _, _, _, im = ax.hist2d(sim_dx_lr[:, feat], sim_de_lr[:, emb], bins=100, cmap="Blues", cmin=0.5, norm=colors.LogNorm())
+                _, _, _, im = ax.hist2d(sim_dx_lr[:, feat], sim_de_lr[:, emb], bins=(feature_bins, 100), cmap="Blues", cmin=0.5, norm=colors.LogNorm())
                 ax.set_xlabel(f"Feature {feat} difference")
                 ax.set_ylabel(f"Embedding {emb} difference")
                 ax.set_title(f"{name} vs Emb. {emb} (duplicates)")
@@ -360,7 +436,7 @@ class PlotDuplicatesWithBigDistance:
             fig, axs = plt.subplots(figsize=(16, 8), ncols=fig_per_row, nrows=n_emb // fig_per_row)
             for emb in range(n_emb):
                 ax = axs[emb // fig_per_row, emb % fig_per_row]
-                _, _, _, im = ax.hist2d(dis_dx_lr[:, feat], dis_de_lr[:, emb], bins=100, cmap="Reds", cmin=0.5, norm=colors.LogNorm())
+                _, _, _, im = ax.hist2d(dis_dx_lr[:, feat], dis_de_lr[:, emb], bins=(feature_bins, 100), cmap="Reds", cmin=0.5, norm=colors.LogNorm())
                 ax.set_xlabel(f"Feature {feat} difference")
                 ax.set_ylabel(f"Embedding {emb} difference")
                 ax.set_title(f"{name} vs Emb. {emb} (non-duplicates)")
