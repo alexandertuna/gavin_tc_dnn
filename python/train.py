@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
@@ -24,6 +25,7 @@ os.environ["PYTHONHASHSEED"] = str(42)
 class Trainer:
 
     def __init__(self,
+                 emb_dim: int,
                  bonus_features,
                  X_left_train,
                  X_left_test,
@@ -91,8 +93,8 @@ class Trainer:
 
         # instantiate and send to GPU/CPU
         print("Creating embedding networks ...")
-        self.embed_t5 = EmbeddingNetT5().to(DEVICE)
-        self.embed_pls = EmbeddingNetpLS().to(DEVICE)
+        self.embed_t5 = EmbeddingNetT5(emb_dim=emb_dim).to(DEVICE)
+        self.embed_pls = EmbeddingNetpLS(emb_dim=emb_dim).to(DEVICE)
 
         # joint optimizer over both nets
         print("Creating optimizer ...")
@@ -102,8 +104,7 @@ class Trainer:
         )
 
 
-    def train(self):
-        num_epochs = 200
+    def train(self, num_epochs: int = 200):
         print(time.strftime("Time: %Y-%m-%d %H:%M:%S", time.localtime()))
         self.losses_t5t5 = []
         self.losses_t5pls = []
@@ -315,7 +316,7 @@ class Trainer:
         print("*"*50)
 
 
-    def save(self, path):
+    def save(self, path: Path):
         print(f"Saving model to {path}")
         torch.save({
             'embed_t5': self.embed_t5.state_dict(),

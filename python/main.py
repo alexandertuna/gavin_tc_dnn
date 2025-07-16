@@ -1,43 +1,82 @@
+"""
+Main script to run Gavin's track embedding model training and visualization
+"""
+import argparse
+
 from preprocess import Preprocessor
 from train import Trainer
 from viz import Plotter
-from inspect_t5t5 import InspectT5T5
 from pathlib import Path
 
+
+def options():
+    parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-i", "--input", type=str, default="/ceph/users/atuna/work/gavin_tc_dnn/data/pls_t5_embed_0p75.root",
+                        help="Path to the input LSTNtuple ROOT file")
+    parser.add_argument("--model", type=str, default="model_weights.pth",
+                        help="Path to save or load the model weights")
+    parser.add_argument("--pdf", type=str, default="plots.pdf",
+                        help="Path to save the output plots in PDF format")
+    parser.add_argument("--parallelism_test", action="store_true",
+                        help="Run a test to check parallelism in data processing")
+    parser.add_argument("--speed_test", action="store_true",
+                        help="Run a speed test for data processing")
+    parser.add_argument("--load_model", action="store_true",
+                        help="Flag to load the model; if not set, the model will be trained")
+    parser.add_argument("--emb_dim", type=int, default=6,
+                        help="Dimensionality of the embedding space")
+    return parser.parse_args()
+
+
 def main():
-    model_path = Path("model_weights.pth")
-    pdf_path = Path("plots.pdf")
-    file_path = "/ceph/users/atuna/work/gavin_tc_dnn/python/pls_t5_embed.root"
-    # file_path = "/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed.root"
+
+    # Command line arguments
+    args = options()
+    file_path = Path(args.input)
+    model_path = Path(args.model)
+    pdf_path = Path(args.pdf)
+
+    # Data processing
     processor = Preprocessor(file_path)
-    # processor.speed_test()
-    # trainer = Trainer(processor.X_left_train,
-    #                   processor.X_left_test,
-    #                   processor.X_right_train,
-    #                   processor.X_right_test,
-    #                   processor.y_t5_train,
-    #                   processor.y_t5_test,
-    #                   processor.w_t5_train,
-    #                   processor.w_t5_test,
-    #                   # --------------------
-    #                   processor.X_pls_train,
-    #                   processor.X_pls_test,
-    #                   processor.X_t5raw_train,
-    #                   processor.X_t5raw_test,
-    #                   processor.y_pls_train,
-    #                   processor.y_pls_test,
-    #                   processor.w_pls_train,
-    #                   processor.w_pls_test,
-    #                   )
 
-    # if False:
-    #     trainer.train()
-    #     trainer.save(model_path)
-    # else:
-    #     trainer.load(model_path)
+    # Tests?
+    if args.parallelism_test:
+        processor.parallelism_test()
+    if args.speed_test:
+        processor.speed_test()
 
-    # plotter = Plotter(trainer)
-    # plotter.plot(pdf_path)
+    # ML training
+    trainer = Trainer(args.emb_dim,
+                      processor.bonus_features,
+                      processor.X_left_train,
+                      processor.X_left_test,
+                      processor.X_right_train,
+                      processor.X_right_test,
+                      processor.y_t5_train,
+                      processor.y_t5_test,
+                      processor.w_t5_train,
+                      processor.w_t5_test,
+                      # --------------------
+                      processor.X_pls_train,
+                      processor.X_pls_test,
+                      processor.X_t5raw_train,
+                      processor.X_t5raw_test,
+                      processor.y_pls_train,
+                      processor.y_pls_test,
+                      processor.w_pls_train,
+                      processor.w_pls_test,
+                      )
+
+    if not args.load_model:
+        trainer.train(num_epochs=5)
+        # trainer.print_thresholds()
+        # trainer.print_weights_biases()
+        trainer.save(model_path)
+    else:
+        trainer.load(model_path)
+
+    plotter = Plotter(trainer)
+    plotter.plot(pdf_path)
 
     # inspector = InspectT5T5(processor, trainer)
     # inspector.inspect()
