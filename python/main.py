@@ -33,6 +33,14 @@ def options():
                         help="Flag to load precomputed features instead of computing them from scratch")
     parser.add_argument("--load_pairs", action="store_true",
                         help="Flag to load precomputed pairs instead of computing them from scratch")
+    parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
+                        help="Path to the precomputed T5 features file")
+    parser.add_argument("--features_pls", type=str, default="features_pls.pkl",
+                        help="Path to the precomputed PLS features file")
+    parser.add_argument("--pairs_t5t5", type=str, default="pairs_t5t5.pkl",
+                        help="Path to the precomputed T5-T5 pairs file")
+    parser.add_argument("--pairs_t5pls", type=str, default="pairs_t5pls.pkl",
+                        help="Path to the precomputed T5-PLS pairs file")
     return parser.parse_args()
 
 
@@ -47,7 +55,12 @@ def main():
     # Data processing
     processor = Preprocessor(file_path,
                              args.load_features,
-                             args.load_pairs)
+                             args.load_pairs,
+                             args.features_t5,
+                             args.features_pls,
+                             args.pairs_t5t5,
+                             args.pairs_t5pls,
+                             )
 
     # Tests?
     if args.parallelism_test:

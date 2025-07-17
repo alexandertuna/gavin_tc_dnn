@@ -33,12 +33,6 @@ INVALID_SIM_IDX    = -1
 MAX_SIM            = 1000
 MAX_DIS            = 1000
 
-# intermediate data
-FEATURES_T5 = Path("features_t5.pkl")
-FEATURES_PLS = Path("features_pls.pkl")
-PAIRS_T5T5 = Path("pairs_t5t5.pkl")
-PAIRS_T5PLS = Path("pairs_t5pls.pkl")
-
 
 def load_root_file(file_path, branches=None, print_branches=False):
     all_branches = {}
@@ -115,7 +109,7 @@ def delta_phi(phi1, phi2):
         delta += 2 * np.pi
     return delta
 
-def load_t5_features():
+def load_t5_features(FEATURES_T5):
     with open(FEATURES_T5, "rb") as fi:
         data = pickle.load(fi)
     return [
@@ -124,7 +118,7 @@ def load_t5_features():
         data["sim_indices_per_event"],
     ]
 
-def load_pls_features():
+def load_pls_features(FEATURES_PLS):
     with open(FEATURES_PLS, "rb") as fi:
         data = pickle.load(fi)
     return [
@@ -132,7 +126,7 @@ def load_pls_features():
         data["pLS_sim_indices_per_event"],
     ]
 
-def load_t5_t5_pairs():
+def load_t5_t5_pairs(PAIRS_T5T5):
     with open(PAIRS_T5T5, "rb") as fi:
         data = pickle.load(fi)
     return [
@@ -150,7 +144,7 @@ def load_t5_t5_pairs():
         data["true_R_test"]
     ]
 
-def load_t5_pls_pairs():
+def load_t5_pls_pairs(PAIRS_T5PLS):
     with open(PAIRS_T5PLS, "rb") as fi:
         data = pickle.load(fi)
     return [
@@ -166,24 +160,36 @@ def load_t5_pls_pairs():
 
 class Preprocessor:
 
-    def __init__(self, root_path, LOAD_FEATURES, LOAD_PAIRS):
+    def __init__(self,
+                 root_path,
+                 LOAD_FEATURES,
+                 LOAD_PAIRS,
+                 FEATURES_T5,
+                 FEATURES_PLS,
+                 PAIRS_T5T5,
+                 PAIRS_T5PLS,
+                 ):
 
         self.bonus_features = BONUS_FEATURES
         self.LOAD_FEATURES = LOAD_FEATURES
         self.LOAD_PAIRS = LOAD_PAIRS
+        self.FEATURES_T5 = FEATURES_T5
+        self.FEATURES_PLS = FEATURES_PLS
+        self.PAIRS_T5T5 = PAIRS_T5T5
+        self.PAIRS_T5PLS = PAIRS_T5PLS
         self.root_path = root_path
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
 
         print("Getting T5 features")
         [features_per_event,
          displaced_per_event,
-         sim_indices_per_event] = self.get_t5_features(branches) if not self.LOAD_FEATURES else load_t5_features()
+         sim_indices_per_event] = self.get_t5_features(branches) if not self.LOAD_FEATURES else load_t5_features(self.FEATURES_T5)
         self.features_per_event = features_per_event
         self.sim_indices_per_event = sim_indices_per_event
 
         print("Getting PLS features")
         [pLS_features_per_event,
-         pLS_sim_indices_per_event] = self.get_pls_features(branches) if not self.LOAD_FEATURES else load_pls_features()
+         pLS_sim_indices_per_event] = self.get_pls_features(branches) if not self.LOAD_FEATURES else load_pls_features(self.FEATURES_PLS)
 
         print("Getting T5-T5 pairs")
         [self.X_left_train,
@@ -200,7 +206,7 @@ class Preprocessor:
          self.true_R_test
          ] = self.get_t5_pairs(features_per_event,
                                displaced_per_event,
-                               sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_t5_pairs()
+                               sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_t5_pairs(self.PAIRS_T5T5)
 
         print("Getting PLS-T5 pairs")
         [self.X_pls_train,
@@ -215,7 +221,7 @@ class Preprocessor:
                                    pLS_sim_indices_per_event,
                                    features_per_event,
                                    displaced_per_event,
-                                   sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_pls_pairs()
+                                   sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_pls_pairs(self.PAIRS_T5PLS)
 
 
     def load_root_file(self, root_path):
@@ -481,8 +487,8 @@ class Preprocessor:
 
         # ------------------------------------------------------------------
 
-        print(f"Writing to {FEATURES_T5}")
-        with open(FEATURES_T5, "wb") as fi:
+        print(f"Writing to {self.FEATURES_T5}")
+        with open(self.FEATURES_T5, "wb") as fi:
             pickle.dump({
                 "features_per_event": features_per_event,
                 "displaced_per_event": displaced_per_event,
@@ -565,8 +571,8 @@ class Preprocessor:
 
         # ----------------------------------------------------------------------------
 
-        print(f"Writing to {FEATURES_PLS}")
-        with open(FEATURES_PLS, "wb") as fi:
+        print(f"Writing to {self.FEATURES_PLS}")
+        with open(self.FEATURES_PLS, "wb") as fi:
             pickle.dump({
                 "pLS_features_per_event": pLS_features_per_event,
                 "pLS_sim_indices_per_event": pLS_sim_indices_per_event,
@@ -616,8 +622,8 @@ class Preprocessor:
         print(f"{pct_disp:.2f}% of all pairs involve a displaced T5")
 
         # write results to file
-        print(f"Writing to {PAIRS_T5T5}")
-        with open(PAIRS_T5T5, "wb") as fi:
+        print(f"Writing to {self.PAIRS_T5T5}")
+        with open(self.PAIRS_T5T5, "wb") as fi:
             pickle.dump({
                 "X_left_train": X_left_train,
                 "X_left_test": X_left_test,
@@ -700,8 +706,8 @@ class Preprocessor:
         print(f"pLS-T5 pairs → train {len(y_pls_train)}  test {len(y_pls_test)}")
         print(f"{pct_disp_pls:.2f}% of pLS-T5 pairs involve a displaced T5")
 
-        print(f"Writing to {PAIRS_T5PLS}")
-        with open(PAIRS_T5PLS, "wb") as fi:
+        print(f"Writing to {self.PAIRS_T5PLS}")
+        with open(self.PAIRS_T5PLS, "wb") as fi:
             pickle.dump({
                 "X_pls_train": X_pls_train,
                 "X_pls_test": X_pls_test,
