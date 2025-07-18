@@ -4,6 +4,8 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
 
+import T5EmbedNetworkWeights
+import pLSEmbedNetworkWeights
 
 class SiameseDataset(Dataset):
     def __init__(self, X_left, X_right, y, w):
@@ -43,6 +45,14 @@ class EmbeddingNetT5(nn.Module):
         x = self.relu1(self.fc1(x))
         x = self.relu2(self.fc2(x))
         return self.fc3(x)
+    def load_from_header(self):
+        with torch.no_grad():
+            self.fc1.weight.copy_(torch.tensor(T5EmbedNetworkWeights.wgtT_fc1).T)
+            self.fc1.bias.copy_(torch.tensor(T5EmbedNetworkWeights.bias_fc1))
+            self.fc2.weight.copy_(torch.tensor(T5EmbedNetworkWeights.wgtT_fc2).T)
+            self.fc2.bias.copy_(torch.tensor(T5EmbedNetworkWeights.bias_fc2))
+            self.fc3.weight.copy_(torch.tensor(T5EmbedNetworkWeights.wgtT_fc3).T)
+            self.fc3.bias.copy_(torch.tensor(T5EmbedNetworkWeights.bias_fc3))
 
 # pLS embedding net
 class EmbeddingNetpLS(nn.Module):
@@ -55,6 +65,15 @@ class EmbeddingNetpLS(nn.Module):
         x = self.relu1(self.fc1(x))
         x = self.relu2(self.fc2(x))
         return self.fc3(x)
+    def load_from_header(self):
+        with torch.no_grad():
+            self.fc1.weight.copy_(torch.tensor(pLSEmbedNetworkWeights.wgtT_fc1).T)
+            self.fc1.bias.copy_(torch.tensor(pLSEmbedNetworkWeights.bias_fc1))
+            self.fc2.weight.copy_(torch.tensor(pLSEmbedNetworkWeights.wgtT_fc2).T)
+            self.fc2.bias.copy_(torch.tensor(pLSEmbedNetworkWeights.bias_fc2))
+            self.fc3.weight.copy_(torch.tensor(pLSEmbedNetworkWeights.wgtT_fc3).T)
+            self.fc3.bias.copy_(torch.tensor(pLSEmbedNetworkWeights.bias_fc3))
+
     
 class ContrastiveLoss(nn.Module):
     def __init__(self, margin=1.0):
