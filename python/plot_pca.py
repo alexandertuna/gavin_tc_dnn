@@ -37,6 +37,8 @@ def options():
                         help="Whether to perform t-SNE on the PCA projections")
     parser.add_argument("--quickplot", action='store_true',
                         help="Only make a couple plots for testing purposes")
+    parser.add_argument("--checkmath", action='store_true',
+                        help="Check the PCA math by printing some intermediate results")
     return parser.parse_args()
 
 
@@ -112,17 +114,35 @@ def main():
     t5s = slice(0, len(embedded_t5))
     pls = slice(len(embedded_t5), len(embedded_t5) + len(embedded_pls))
 
+    # do PCA
     print("Performing PCA on embedded T5s and PLSs")
     input = np.concatenate((embedded_t5, embedded_pls))
-    proj = PCA(n_components=args.n_pca).fit_transform(input)
-    # pca_t5 = PCA(n_components=args.n_pca)
-    # pca_pls = PCA(n_components=args.n_pca)
-    # proj_t5 = pca_t5.fit_transform(embedded_t5)
-    # proj_pls = pca_pls.fit_transform(embedded_pls)
-    # print(f"PCA T5 projection shape: {proj_t5.shape}")
-    # print(f"PCA PLS projection shape: {proj_pls.shape}")
+    pca = PCA(n_components=args.n_pca)
+    proj = pca.fit_transform(input)
     print(f"Combined PCA projection shape: {proj.shape}")
 
+    # PCA results
+    print("PCA results:")
+    print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+    print(f"Explained variance: {pca.explained_variance_}")
+    print(f"Principal components shape: {pca.components_.shape}")
+
+    # Check by hand
+    if args.checkmath:
+        ncheck = 2
+        print(f"Principal components:")
+        print(f"{pca.components_}")
+        print(f"Mean of the input data: {pca.mean_}")
+        print(f"Embedded T5s shape and first {ncheck}: {embedded_t5.shape}")
+        print(embedded_t5[:ncheck])
+        print(f"Embedded PLSs shape and first {ncheck}: {embedded_pls.shape}")
+        print(embedded_pls[:ncheck])
+        print(f"PCA projection shape and first {ncheck} T5s: {proj[t5s].shape}")
+        print(proj[t5s][:ncheck])
+        print(f"PCA projection shape and first {ncheck} PLSs: {proj[pls].shape}")
+        print(proj[pls][:ncheck])
+
+    # t-SNE? On the todo list
     if args.tsne:
         print("Performing t-SNE")
         tsne = TSNE(n_components=2, perplexity=30, random_state=42)
