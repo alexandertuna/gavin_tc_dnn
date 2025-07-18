@@ -29,6 +29,8 @@ def options():
                         help="Path to the precomputed T5-T5 pairs file")
     parser.add_argument("--pairs_t5pls", type=str, default="pairs_t5pls.pkl",
                         help="Path to the precomputed T5-PLS pairs file")
+    parser.add_argument("--pca_dataset", type=str, default="test",
+                        help="Choice of dataset for PCA: 'train' or 'test'")
     parser.add_argument("--n_pca", type=int, default=6,
                         help="Number of PCA components")
     parser.add_argument("--tsne", action='store_true',
@@ -86,10 +88,19 @@ def main():
     embed_t5.eval()
     embed_pls.eval()
 
+    print(f"Choosing dataset for PCA: {args.pca_dataset}")
+    if args.pca_dataset == "train":
+        x_t5 = X_left_train
+        x_pls = X_pls_train
+    elif args.pca_dataset == "test":
+        x_t5 = X_left_test
+        x_pls = X_pls_test
+    else:
+        raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
 
     print("Embedding T5s and PLSs")
-    x_t5 = torch.tensor(X_left_test[:, :-BONUS_FEATURES], requires_grad=False)
-    x_pls = torch.tensor(X_pls_test[:, :-BONUS_FEATURES], requires_grad=False)
+    x_t5 = torch.tensor(x_t5[:, :-BONUS_FEATURES], requires_grad=False)
+    x_pls = torch.tensor(x_pls[:, :-BONUS_FEATURES], requires_grad=False)
     embedded_t5 = embed_t5(x_t5).detach().numpy()
     embedded_pls = embed_pls(x_pls).detach().numpy()
     print(f"Embedded T5s shape: {embedded_t5.shape}")
@@ -121,6 +132,7 @@ def main():
 
         # feature correlation check
         for dim in range(args.n_pca):
+            print(f"Plotting PCA Component {dim} correlations with features")
             for (name, slc, sample) in [
                 ("T5", t5s, x_t5),
                 ("PLS", pls, x_pls),
@@ -143,6 +155,7 @@ def main():
                                    (proj[pls], "PCA Projection: PLSs"),
                                    (proj, "PCA Projection: T5s and PLSs"),
                                    ]:
+            print(f"Plotting {title}")
             for norm in [None, colors.LogNorm()]:
                 cmin = 0.5
                 fig, ax = plt.subplots(figsize=(8, 8))
