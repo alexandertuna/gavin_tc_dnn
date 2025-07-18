@@ -35,6 +35,8 @@ def options():
                         help="Number of PCA components")
     parser.add_argument("--tsne", action='store_true',
                         help="Whether to perform t-SNE on the PCA projections")
+    parser.add_argument("--quickplot", action='store_true',
+                        help="Only make a couple plots for testing purposes")
     return parser.parse_args()
 
 
@@ -127,6 +129,11 @@ def main():
         tsne_t5 = tsne.fit_transform(embedded_t5)
         tsne_pls = tsne.fit_transform(embedded_pls)
 
+    # plot options
+    cmin = 0.5
+    pad = 0.01
+
+
     print("Plotting!")
     with PdfPages(pdf_name) as pdf:
 
@@ -137,16 +144,21 @@ def main():
                 ("T5", t5s, x_t5),
                 ("PLS", pls, x_pls),
             ]:
+                if args.quickplot and dim > 0:
+                    break
                 n_features = sample.shape[1]
                 for feature in range(n_features):
-                    # if feature > 5:
-                    #     break
+                    if args.quickplot and feature > 5:
+                        break
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap='gist_heat', cmin=0.5)
+                    _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap='gist_heat', cmin=cmin)
                     ax.set_xlabel(f"PCA Component {dim}")
                     ax.set_ylabel(f"{name} Feature {feature}")
                     ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
                     ax.tick_params(right=True, top=True, which="both", direction="in")
+                    ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
+                    fig.colorbar(im, ax=ax, pad=pad)
+                    fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
                     pdf.savefig()
                     plt.close()
 
@@ -157,16 +169,15 @@ def main():
                                    ]:
             print(f"Plotting {title}")
             for norm in [None, colors.LogNorm()]:
-                cmin = 0.5
                 fig, ax = plt.subplots(figsize=(8, 8))
                 _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=100, cmap='gist_heat', cmin=cmin, norm=norm)
                 ax.set_xlabel("PCA Component 0")
                 ax.set_ylabel("PCA Component 1")
                 ax.set_title(title)
-                ax.text(1.12, 1.02, "Tracks", transform=ax.transAxes)
+                ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
                 ax.tick_params(right=True, top=True, which="both", direction="in")
-                fig.colorbar(im, ax=ax)
-                fig.subplots_adjust(right=0.97, left=0.12, bottom=0.09, top=0.95)
+                fig.colorbar(im, ax=ax, pad=pad)
+                fig.subplots_adjust(right=0.98, left=0.12, bottom=0.09, top=0.95)
                 pdf.savefig()
                 plt.close()
 
