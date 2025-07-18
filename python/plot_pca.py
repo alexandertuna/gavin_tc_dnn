@@ -1,9 +1,13 @@
 import argparse
+import numpy as np
 import torch
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import colors
+from matplotlib import rcParams
+rcParams["font.size"] = 16
 
 from preprocess import load_t5_features, load_pls_features
 from preprocess import load_t5_t5_pairs, load_t5_pls_pairs
@@ -13,7 +17,7 @@ BONUS_FEATURES = 2
 
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--model", type=str, default="model_weights.pth",
+    parser.add_argument("--model", type=str, default="",
                         help="Path to save or load the model weights")
     parser.add_argument("--pdf", type=str, default="pca.pdf",
                         help="Path to save the output plots in PDF format")
@@ -27,6 +31,8 @@ def options():
                         help="Path to the precomputed T5-PLS pairs file")
     parser.add_argument("--n_pca", type=int, default=6,
                         help="Number of PCA components")
+    parser.add_argument("--tsne", action='store_true',
+                        help="Whether to perform t-SNE on the PCA projections")
     return parser.parse_args()
 
 
@@ -68,9 +74,15 @@ def main():
     print("Loading embedding networks")
     embed_t5 = EmbeddingNetT5()
     embed_pls = EmbeddingNetpLS()
-    checkpoint = torch.load(model_weights)
-    embed_t5.load_state_dict(checkpoint["embed_t5"])
-    embed_pls.load_state_dict(checkpoint["embed_pls"])
+    if not model_weights:
+        print("No model weights provided, using header weights")
+        embed_t5.load_from_header()
+        embed_pls.load_from_header()
+    else:
+        print(f"Loading model weights from {model_weights}")
+        checkpoint = torch.load(model_weights)
+        embed_t5.load_state_dict(checkpoint["embed_t5"])
+        embed_pls.load_state_dict(checkpoint["embed_pls"])
     embed_t5.eval()
     embed_pls.eval()
 
@@ -83,31 +95,67 @@ def main():
     print(f"Embedded T5s shape: {embedded_t5.shape}")
     print(f"Embedded PLSs shape: {embedded_pls.shape}")
 
+    # bookkeeping
+    t5s = slice(0, len(embedded_t5))
+    pls = slice(len(embedded_t5), len(embedded_t5) + len(embedded_pls))
 
     print("Performing PCA on embedded T5s and PLSs")
-    pca_t5 = PCA(n_components=args.n_pca)
-    pca_pls = PCA(n_components=args.n_pca)
-    proj_t5 = pca_t5.fit_transform(embedded_t5)
-    proj_pls = pca_pls.fit_transform(embedded_pls)
-    print(f"PCA T5 projection shape: {proj_t5.shape}")
-    print(f"PCA PLS projection shape: {proj_pls.shape}")
+    input = np.concatenate((embedded_t5, embedded_pls))
+    proj = PCA(n_components=args.n_pca).fit_transform(input)
+    # pca_t5 = PCA(n_components=args.n_pca)
+    # pca_pls = PCA(n_components=args.n_pca)
+    # proj_t5 = pca_t5.fit_transform(embedded_t5)
+    # proj_pls = pca_pls.fit_transform(embedded_pls)
+    # print(f"PCA T5 projection shape: {proj_t5.shape}")
+    # print(f"PCA PLS projection shape: {proj_pls.shape}")
+    print(f"Combined PCA projection shape: {proj.shape}")
 
+    if args.tsne:
+        print("Performing t-SNE")
+        tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+        tsne_t5 = tsne.fit_transform(embedded_t5)
+        tsne_pls = tsne.fit_transform(embedded_pls)
+
+    print("Plotting!")
     with PdfPages(pdf_name) as pdf:
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.hist2d(proj_t5[:, 0], proj_t5[:, 1], bins=100, cmap='Blues')
-        ax.set_xlabel("PCA Component 1")
-        ax.set_ylabel("PCA Component 2")
-        ax.set_title("PCA Projection of T5s")
-        pdf.savefig()
-        plt.close()
 
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.hist2d(proj_t5[:, 0], proj_t5[:, 1], bins=100, cmap='Blues', norm=colors.LogNorm())
-        ax.set_xlabel("PCA Component 1")
-        ax.set_ylabel("PCA Component 2")
-        ax.set_title("PCA Projection of T5s")
-        pdf.savefig()
-        plt.close()
+        # feature correlation check
+        for dim in range(args.n_pca):
+            for (name, slc, sample) in [
+                ("T5", t5s, x_t5),
+                ("PLS", pls, x_pls),
+            ]:
+                n_features = sample.shape[1]
+                for feature in range(n_features):
+                    # if feature > 5:
+                    #     break
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap='gist_heat', cmin=0.5)
+                    ax.set_xlabel(f"PCA Component {dim}")
+                    ax.set_ylabel(f"{name} Feature {feature}")
+                    ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
+                    ax.tick_params(right=True, top=True, which="both", direction="in")
+                    pdf.savefig()
+                    plt.close()
+
+        # sample checks
+        for (proj_data, title) in [(proj[t5s], "PCA Projection: T5s"),
+                                   (proj[pls], "PCA Projection: PLSs"),
+                                   (proj, "PCA Projection: T5s and PLSs"),
+                                   ]:
+            for norm in [None, colors.LogNorm()]:
+                cmin = 0.5
+                fig, ax = plt.subplots(figsize=(8, 8))
+                _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=100, cmap='gist_heat', cmin=cmin, norm=norm)
+                ax.set_xlabel("PCA Component 0")
+                ax.set_ylabel("PCA Component 1")
+                ax.set_title(title)
+                ax.text(1.12, 1.02, "Tracks", transform=ax.transAxes)
+                ax.tick_params(right=True, top=True, which="both", direction="in")
+                fig.colorbar(im, ax=ax)
+                fig.subplots_adjust(right=0.97, left=0.12, bottom=0.09, top=0.95)
+                pdf.savefig()
+                plt.close()
 
 
     # get t5s
