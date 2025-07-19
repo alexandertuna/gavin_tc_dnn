@@ -175,6 +175,7 @@ def main():
         tsne_pls = tsne.fit_transform(embedded_pls)
 
     # plot options
+    cmap = "hot"
     cmin = 0.5
     pad = 0.01
 
@@ -195,7 +196,7 @@ def main():
                     if args.quickplot and feature > 5:
                         break
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap='gist_heat', cmin=cmin)
+                    _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap=cmap, cmin=cmin)
                     ax.set_xlabel(f"PCA Component {dim}")
                     ax.set_ylabel(f"{name} Feature {feature}")
                     ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
@@ -216,7 +217,7 @@ def main():
             for dim_i in range(args.n_pca):
                 for dim_j in range(dim_i, args.n_pca):
                     corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
-                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=100, cmap="gist_heat", cmin=cmin)
+                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=100, cmap=cmap, cmin=cmin)
                     ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
                     ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
                     ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -229,7 +230,7 @@ def main():
             for dim_i in range(args.n_pca):
                 print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
                 fig, ax = plt.subplots(figsize=(8, 8))
-                _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=100, cmap="gist_heat", cmin=cmin)
+                _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=100, cmap=cmap, cmin=cmin)
                 ax.set_xlabel(f"Model PCA Component {dim_i}")
                 ax.set_ylabel(f"Other Model PCA Component {dim_i}")
                 ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
@@ -249,7 +250,7 @@ def main():
             print(f"Plotting {title}")
             for norm in [None, colors.LogNorm()]:
                 fig, ax = plt.subplots(figsize=(8, 8))
-                _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=100, cmap='gist_heat', cmin=cmin, norm=norm)
+                _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=100, cmap=cmap, cmin=cmin, norm=norm)
                 ax.set_xlabel("PCA Component 0")
                 ax.set_ylabel("PCA Component 1")
                 ax.set_title(title)
@@ -270,6 +271,102 @@ def main():
     # Plot T5s at low pt, or high eta, or displaced, etc
     # Look for trends
     # Look at PCA decomposition
+
+def feature_name_t5(feature: int) -> str:
+    if feature == 0:
+        return "eta1 / 2.5"
+    elif feature == 1:
+        return "np.cos(phi1)"
+    elif feature == 2:
+        return "np.sin(phi1)"
+    elif feature == 3:
+        return "z1 / z_max"
+    elif feature == 4:
+        return "r1 / r_max"
+
+    elif feature == 5:
+        return "eta2 - abs(eta1)"
+    elif feature == 6:
+        return "delta_phi(phi2, phi1)"
+    elif feature == 7:
+        return "(z2 - z1) / z_max"
+    elif feature == 8:
+        return "(r2 - r1) / r_max"
+
+    elif feature == 9:
+        return "eta3 - eta2"
+    elif feature == 10:
+        return "delta_phi(phi3, phi2)"
+    elif feature == 11:
+        return "(z3 - z2) / z_max"
+    elif feature == 12:
+        return "(r3 - r2) / r_max"
+
+    elif feature == 13:
+        return "eta4 - eta3"
+    elif feature == 14:
+        return "delta_phi(phi4, phi3)"
+    elif feature == 15:
+        return "(z4 - z3) / z_max"
+    elif feature == 16:
+        return "(r4 - r3) / r_max"
+
+    elif feature == 17:
+        return "eta5 - eta4"
+    elif feature == 18:
+        return "delta_phi(phi5, phi4)"
+    elif feature == 19:
+        return "(z5 - z4) / z_max"
+    elif feature == 20:
+        return "(r5 - r4) / r_max"
+
+    elif feature == 21:
+        return "1.0 / inR"
+    elif feature == 22:
+        return "1.0 / brR"
+    elif feature == 23:
+        return "1.0 / outR"
+
+    elif feature == 24:
+        return "s1_fake"
+    elif feature == 25:
+        return "s1_prompt"
+    elif feature == 26:
+        return "s1_disp"
+    elif feature == 27:
+        return "d_fake"
+    elif feature == 28:
+        return "d_prompt"
+    elif feature == 29:
+        return "d_disp"
+    else:
+        raise ValueError(f"Unknown T5 feature index: {feature}")
+
+
+def feature_name_pls(feature: int) -> str:
+    if feature == 0:
+        return "eta/4.0"
+    elif feature == 1:
+        return "etaErr/.00139"
+    elif feature == 2:
+        return "np.cos(phi)"
+    elif feature == 3:
+        return "np.sin(phi)"
+    elif feature == 4:
+        return "1.0 / ptIn"
+    elif feature == 5:
+        return "np.log10(ptErr)"
+    elif feature == 6:
+        return "isQuad"
+    elif feature == 7:
+        return "np.log10(circleCenterX)"
+    elif feature == 8:
+        return "np.log10(circleCenterY)"
+    elif feature == 9:
+        return "np.log10(circleRadius)"
+    else:
+        raise ValueError(f"Unknown PLS feature index: {feature}")
+
 
 
 if __name__ == "__main__":
