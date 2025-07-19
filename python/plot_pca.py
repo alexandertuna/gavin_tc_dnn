@@ -19,6 +19,8 @@ def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--model", type=str, default="",
                         help="Path to save or load the model weights")
+    parser.add_argument("--other_model", type=str, default="",
+                        help="Path to save or load the model weights for comparison")
     parser.add_argument("--pdf", type=str, default="pca.pdf",
                         help="Path to save the output plots in PDF format")
     parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
@@ -50,6 +52,7 @@ def main():
     pairs_t5t5 = args.pairs_t5t5
     pairs_t5pls = args.pairs_t5pls
     model_weights = args.model
+    other_model = args.other_model
 
     print(f"Loading T5-T5 pairs from {pairs_t5t5}")
     (X_left_train,
@@ -92,6 +95,16 @@ def main():
     embed_t5.eval()
     embed_pls.eval()
 
+    if other_model:
+        print(f"Loading other model weights from {other_model}")
+        other_checkpoint = torch.load(other_model)
+        embed_t5_other = EmbeddingNetT5()
+        embed_pls_other = EmbeddingNetpLS()
+        embed_t5_other.load_state_dict(other_checkpoint["embed_t5"])
+        embed_pls_other.load_state_dict(other_checkpoint["embed_pls"])
+        embed_t5_other.eval()
+        embed_pls_other.eval()
+
     print(f"Choosing dataset for PCA: {args.pca_dataset}")
     if args.pca_dataset == "train":
         x_t5 = X_left_train
@@ -109,6 +122,12 @@ def main():
     embedded_pls = embed_pls(x_pls).detach().numpy()
     print(f"Embedded T5s shape: {embedded_t5.shape}")
     print(f"Embedded PLSs shape: {embedded_pls.shape}")
+    if other_model:
+        print("Embedding T5s and PLSs with other model")
+        embedded_t5_other = embed_t5_other(x_t5).detach().numpy()
+        embedded_pls_other = embed_pls_other(x_pls).detach().numpy()
+        print(f"Other Embedded T5s shape: {embedded_t5_other.shape}")
+        print(f"Other Embedded PLSs shape: {embedded_pls_other.shape}")
 
     # bookkeeping
     t5s = slice(0, len(embedded_t5))
@@ -120,6 +139,12 @@ def main():
     pca = PCA(n_components=args.n_pca)
     proj = pca.fit_transform(input)
     print(f"Combined PCA projection shape: {proj.shape}")
+    if other_model:
+        print("Performing PCA on other model's embedded T5s and PLSs")
+        input_other = np.concatenate((embedded_t5_other, embedded_pls_other))
+        pca_other = PCA(n_components=args.n_pca)
+        proj_other = pca_other.fit_transform(input_other)
+        print(f"Other model PCA projection shape: {proj_other.shape}")
 
     # PCA results
     print("PCA results:")
@@ -153,7 +178,6 @@ def main():
     cmin = 0.5
     pad = 0.01
 
-
     print("Plotting!")
     with PdfPages(pdf_name) as pdf:
 
@@ -181,6 +205,41 @@ def main():
                     fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
                     pdf.savefig()
                     plt.close()
+
+
+        # other model?
+        if other_model:
+
+            # everything at once
+            print(f"Plotting PCA Component i vs j for model vs other model")
+            fig, ax = plt.subplots(figsize=(40, 40), nrows=args.n_pca, ncols=args.n_pca)
+            for dim_i in range(args.n_pca):
+                for dim_j in range(dim_i, args.n_pca):
+                    corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
+                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=100, cmap="gist_heat", cmin=cmin)
+                    ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
+                    ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
+                    ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
+                    ax[dim_i, dim_j].text(0.50, 1.02, f"Corr: {corr:.2f}", transform=ax[dim_i, dim_j].transAxes, ha="center")
+            fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
+            pdf.savefig()
+            plt.close()
+
+            # only diagonal terms
+            for dim_i in range(args.n_pca):
+                print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
+                fig, ax = plt.subplots(figsize=(8, 8))
+                _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=100, cmap="gist_heat", cmin=cmin)
+                ax.set_xlabel(f"Model PCA Component {dim_i}")
+                ax.set_ylabel(f"Other Model PCA Component {dim_i}")
+                ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
+                ax.tick_params(right=True, top=True, which="both", direction="in")
+                ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
+                fig.colorbar(im, ax=ax, pad=pad)
+                fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
+                pdf.savefig()
+                plt.close()
+
 
         # sample checks
         for (proj_data, title) in [(proj[t5s], "PCA Projection: T5s"),
