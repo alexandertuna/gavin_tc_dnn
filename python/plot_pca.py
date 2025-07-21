@@ -139,6 +139,7 @@ def main():
         eng_t5_phi = np.arctan2(x_t5[:, 2], x_t5[:, 1])
         eng_pls_eta = x_pls[:, 0] * 4.0
         eng_pls_phi = np.arctan2(x_pls[:, 3], x_pls[:, 2])
+        eng_pls_rinv = (10 ** x_pls[:, 9]) ** -1.0
         x_t5 = np.concatenate((x_t5,
                                eng_t5_eta.reshape(-1, 1),
                                eng_t5_phi.reshape(-1, 1),
@@ -146,6 +147,7 @@ def main():
         x_pls = np.concatenate((x_pls,
                                 eng_pls_eta.reshape(-1, 1),
                                 eng_pls_phi.reshape(-1, 1),
+                                eng_pls_rinv.reshape(-1, 1),
                                 ), axis=1)
 
 
@@ -202,6 +204,21 @@ def main():
     print("Plotting!")
     with PdfPages(pdf_name) as pdf:
 
+        # Correlations of different PCA components
+        print(f"Plotting PCA Component i vs j")
+        fig, ax = plt.subplots(figsize=(40, 40), nrows=args.n_pca, ncols=args.n_pca)
+        for dim_i in range(args.n_pca):
+            for dim_j in range(dim_i, args.n_pca):
+                corr = np.corrcoef(proj[:, dim_i], proj[:, dim_j])[0, 1]
+                _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=100, cmap=cmap, cmin=cmin)
+                ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
+                ax[dim_i, dim_j].set_ylabel(f"PCA Component {dim_j}")
+                ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
+                ax[dim_i, dim_j].text(0.50, 1.02, f"Corr: {corr:.2f}", transform=ax[dim_i, dim_j].transAxes, ha="center")
+        fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
+        pdf.savefig()
+        plt.close()
+
         # feature correlation check
         for dim in range(args.n_pca):
             print(f"Plotting PCA Component {dim} correlations with features")
@@ -209,7 +226,7 @@ def main():
                 ("T5", t5s, x_t5),
                 ("PLS", pls, x_pls),
             ]:
-                if args.quickplot and dim > 0:
+                if args.quickplot and dim > 2:
                     break
                 n_features = sample.shape[1]
                 for feature in range(n_features):
@@ -408,6 +425,8 @@ def feature_name_pls(feature: int) -> str:
         return "eta"
     elif feature == 11:
         return "phi"
+    elif feature == 12:
+        return "1 / R"
 
     else:
         raise ValueError(f"Unknown PLS feature index: {feature}")
