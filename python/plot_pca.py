@@ -14,6 +14,7 @@ from preprocess import load_t5_t5_pairs, load_t5_pls_pairs
 from ml import EmbeddingNetT5, EmbeddingNetpLS
 
 BONUS_FEATURES = 2
+k2Rinv1GeVf = (2.99792458e-3 * 3.8) / 2
 
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
