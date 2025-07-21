@@ -41,6 +41,8 @@ def options():
                         help="Only make a couple plots for testing purposes")
     parser.add_argument("--checkmath", action='store_true',
                         help="Check the PCA math by printing some intermediate results")
+    parser.add_argument("--engineer", action='store_true',
+                        help="Engineer additional features for T5s and PLSs")
     return parser.parse_args()
 
 
@@ -129,6 +131,24 @@ def main():
         print(f"Other Embedded T5s shape: {embedded_t5_other.shape}")
         print(f"Other Embedded PLSs shape: {embedded_pls_other.shape}")
 
+    # add engineered features to the feature vectors
+    x_t5 = x_t5.detach().numpy()
+    x_pls = x_pls.detach().numpy()
+    if args.engineer:
+        eng_t5_eta = x_t5[:, 0] * 2.5
+        eng_t5_phi = np.arctan2(x_t5[:, 2], x_t5[:, 1])
+        eng_pls_eta = x_pls[:, 0] * 4.0
+        eng_pls_phi = np.arctan2(x_pls[:, 3], x_pls[:, 2])
+        x_t5 = np.concatenate((x_t5,
+                               eng_t5_eta.reshape(-1, 1),
+                               eng_t5_phi.reshape(-1, 1),
+                               ), axis=1)
+        x_pls = np.concatenate((x_pls,
+                                eng_pls_eta.reshape(-1, 1),
+                                eng_pls_phi.reshape(-1, 1),
+                                ), axis=1)
+
+
     # bookkeeping
     t5s = slice(0, len(embedded_t5))
     pls = slice(len(embedded_t5), len(embedded_t5) + len(embedded_pls))
@@ -193,12 +213,13 @@ def main():
                     break
                 n_features = sample.shape[1]
                 for feature in range(n_features):
-                    if args.quickplot and feature > 5:
-                        break
+                    #if args.quickplot and feature > 5:
+                    #    break
+                    feat_name = feature_name(name, feature)
                     fig, ax = plt.subplots(figsize=(8, 8))
                     _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap=cmap, cmin=cmin)
                     ax.set_xlabel(f"PCA Component {dim}")
-                    ax.set_ylabel(f"{name} Feature {feature}")
+                    ax.set_ylabel(f"{name} Feature {feature}: {feat_name}")
                     ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
                     ax.tick_params(right=True, top=True, which="both", direction="in")
                     ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
@@ -272,6 +293,16 @@ def main():
     # Look for trends
     # Look at PCA decomposition
 
+
+def feature_name(name: str, feature: int) -> str:
+    if name == "T5":
+        return feature_name_t5(feature)
+    elif name == "PLS":
+        return feature_name_pls(feature)
+    else:
+        raise ValueError(f"Unknown feature type: {name}")
+
+
 def feature_name_t5(feature: int) -> str:
     if feature == 0:
         return "eta1 / 2.5"
@@ -339,6 +370,13 @@ def feature_name_t5(feature: int) -> str:
         return "d_prompt"
     elif feature == 29:
         return "d_disp"
+
+    # Feature engineering begins here
+    elif feature == 30:
+        return "eta"
+    elif feature == 31:
+        return "phi"
+
     else:
         raise ValueError(f"Unknown T5 feature index: {feature}")
 
@@ -364,6 +402,13 @@ def feature_name_pls(feature: int) -> str:
         return "np.log10(circleCenterY)"
     elif feature == 9:
         return "np.log10(circleRadius)"
+
+    # Feature engineering begins here
+    elif feature == 10:
+        return "eta"
+    elif feature == 11:
+        return "phi"
+
     else:
         raise ValueError(f"Unknown PLS feature index: {feature}")
 
