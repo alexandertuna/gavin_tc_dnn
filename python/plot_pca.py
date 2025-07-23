@@ -140,6 +140,14 @@ class PCAPlotter:
         else:
             raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
 
+        # Save pairwise data, too
+        self.x_left_test = X_left_test
+        self.x_right_test = X_right_test
+        self.y_t5_test = y_t5_test
+        self.x_pls_test = X_pls_test
+        self.x_t5_test = X_t5raw_test
+        self.y_pls_test = y_pls_test
+
 
     def load_embedding_networks(self):
 
@@ -171,27 +179,34 @@ class PCAPlotter:
 
     def embed_data(self):
 
+        def embed(x, net):
+            x_tensor = torch.tensor(x[:, :-BONUS_FEATURES], requires_grad=False)
+            return net(x_tensor).detach().numpy()
+
         print("Embedding T5s and PLSs")
-        self.x_t5 = torch.tensor(self.x_t5[:, :-BONUS_FEATURES], requires_grad=False)
-        self.x_pls = torch.tensor(self.x_pls[:, :-BONUS_FEATURES], requires_grad=False)
-        self.embedded_t5 = self.embed_t5(self.x_t5).detach().numpy()
-        self.embedded_pls = self.embed_pls(self.x_pls).detach().numpy()
+        self.embedded_t5 = embed(self.x_t5, self.embed_t5)
+        self.embedded_pls = embed(self.x_pls, self.embed_pls)
         print(f"Embedded T5s shape: {self.embedded_t5.shape}")
         print(f"Embedded PLSs shape: {self.embedded_pls.shape}")
         if self.other_model:
             print("Embedding T5s and PLSs with other model")
-            self.embedded_t5_other = self.embed_t5_other(self.x_t5).detach().numpy()
-            self.embedded_pls_other = self.embed_pls_other(self.x_pls).detach().numpy()
+            self.embedded_t5_other = embed(self.x_t5, self.embed_t5_other)
+            self.embedded_pls_other = embed(self.x_pls, self.embed_pls_other)
             print(f"Other Embedded T5s shape: {self.embedded_t5_other.shape}")
             print(f"Other Embedded PLSs shape: {self.embedded_pls_other.shape}")
-
-        # detorchify
-        self.x_t5 = self.x_t5.detach().numpy()
-        self.x_pls = self.x_pls.detach().numpy()
 
         # bookkeeping
         self.t5s = slice(0, len(self.embedded_t5))
         self.pls = slice(len(self.embedded_t5), len(self.embedded_t5) + len(self.embedded_pls))
+
+        # Save pairwise data, too
+        self.emb_x_l = embed(self.x_left_test, self.embed_t5)
+        self.emb_x_r = embed(self.x_right_test, self.embed_t5)
+        self.emb_x_pls = embed(self.x_pls_test, self.embed_pls)
+        self.emb_x_t5 = embed(self.x_t5_test, self.embed_t5)
+        self.d_t5t5 = np.linalg.norm(self.emb_x_l - self.emb_x_r, axis=1)
+        self.d_t5pls = np.linalg.norm(self.emb_x_t5 - self.emb_x_pls, axis=1)
+
 
     def engineer_features(self):
 
@@ -288,6 +303,29 @@ class PCAPlotter:
 
         print("Plotting!")
         with PdfPages(self.pdf_name) as pdf:
+
+            dup, nodup = 0, 1
+            # self.emb_x_l
+            for status in [dup, nodup]:
+                title = "duplicate" if status == dup else "non-duplicate"
+                mask = self.y_t5_test == status
+                for feature in [0]:
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    feat_mask = mask & (self.x_left_test[:, feature] != self.x_right_test[:, feature])
+                    counts, xbins, ybins, im = ax.hist2d(self.x_left_test[feat_mask, feature] - self.x_right_test[feat_mask, feature],
+                                                         self.d_t5t5[feat_mask], bins=100, cmap=self.cmap, cmin=self.cmin)
+                    ax.contour(counts.transpose(),
+                               extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]],
+                               linewidths=3, cmap=self.cmap, levels=[25, 50, 75, 100])
+                    ax.set_xlabel("Left - Right Feature")
+                    ax.set_ylabel("Euclidean distance")
+                    ax.set_title(f"T5-T5 pairs: {title}")
+                    ax.tick_params(right=True, top=True, which="both", direction="in")
+                    fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+                    pdf.savefig()
+                    plt.close()
+
+            return
 
             # PCA components
             print("Plotting PCA components")
