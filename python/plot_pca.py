@@ -281,9 +281,9 @@ class PCAPlotter:
             tsne_pls = tsne.fit_transform(self.embedded_pls)
 
         # plot options
-        cmap = "hot"
-        cmin = 0.5
-        pad = 0.01
+        self.cmap = "hot"
+        self.cmin = 0.5
+        self.pad = 0.01
         bins = 100
 
         print("Plotting!")
@@ -310,7 +310,7 @@ class PCAPlotter:
             for dim_i in range(self.n_pca):
                 for dim_j in range(dim_i, self.n_pca):
                     corr = np.corrcoef(proj[:, dim_i], proj[:, dim_j])[0, 1]
-                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
+                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
                     ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
                     ax[dim_i, dim_j].set_ylabel(f"PCA Component {dim_j}")
                     ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -335,13 +335,13 @@ class PCAPlotter:
                         feat_name = feature_name(name, feature)
                         this_bins = feature_binning(dim, feat_name)
                         fig, ax = plt.subplots(figsize=(8, 8))
-                        _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=cmap, cmin=cmin)
+                        _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
                         ax.set_xlabel(f"PCA Component {dim}")
                         ax.set_ylabel(f"{name} Feature {feature}: {feat_name}")
                         ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
                         ax.tick_params(right=True, top=True, which="both", direction="in")
                         ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
-                        fig.colorbar(im, ax=ax, pad=pad)
+                        fig.colorbar(im, ax=ax, pad=self.pad)
                         fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
                         pdf.savefig()
                         plt.close()
@@ -356,7 +356,7 @@ class PCAPlotter:
                 for dim_i in range(self.n_pca):
                     for dim_j in range(dim_i, self.n_pca):
                         corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
-                        _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
+                        _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
                         ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
                         ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
                         ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -369,13 +369,13 @@ class PCAPlotter:
                 for dim_i in range(self.n_pca):
                     print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=bins, cmap=cmap, cmin=cmin)
+                    _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=bins, cmap=self.cmap, cmin=self.cmin)
                     ax.set_xlabel(f"Model PCA Component {dim_i}")
                     ax.set_ylabel(f"Other Model PCA Component {dim_i}")
                     ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
                     ax.tick_params(right=True, top=True, which="both", direction="in")
                     ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
-                    fig.colorbar(im, ax=ax, pad=pad)
+                    fig.colorbar(im, ax=ax, pad=self.pad)
                     fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
                     pdf.savefig()
                     plt.close()
@@ -389,13 +389,13 @@ class PCAPlotter:
                 print(f"Plotting {title}")
                 for norm in [None, colors.LogNorm()]:
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=bins, cmap=cmap, cmin=cmin, norm=norm)
+                    _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=bins, cmap=self.cmap, cmin=self.cmin, norm=norm)
                     ax.set_xlabel("PCA Component 0")
                     ax.set_ylabel("PCA Component 1")
                     ax.set_title(title)
                     ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
                     ax.tick_params(right=True, top=True, which="both", direction="in")
-                    fig.colorbar(im, ax=ax, pad=pad)
+                    fig.colorbar(im, ax=ax, pad=self.pad)
                     fig.subplots_adjust(right=0.98, left=0.12, bottom=0.09, top=0.95)
                     pdf.savefig()
                     plt.close()
