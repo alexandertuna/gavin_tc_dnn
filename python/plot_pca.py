@@ -63,6 +63,8 @@ def main():
                          tsne=args.tsne,
                          quickplot=args.quickplot,
                          )
+    plotter.load_data()
+    plotter.load_embedding_networks()
     plotter.plot()
 
 
@@ -99,22 +101,22 @@ class PCAPlotter:
         self.quickplot = quickplot
 
 
-    def plot(self):
+    def load_data(self):
 
         print(f"Loading T5-T5 pairs from {self.pairs_t5t5}")
         (X_left_train,
-        X_left_test,
-        X_right_train,
-        X_right_test,
-        y_t5_train,
-        y_t5_test,
-        w_t5_train,
-        w_t5_test,
-        true_L_train,
-        true_L_test,
-        true_R_train,
-        true_R_test) = load_t5_t5_pairs(self.pairs_t5t5)
-        print(X_left_test.shape)
+         X_left_test,
+         X_right_train,
+         X_right_test,
+         y_t5_train,
+         y_t5_test,
+         w_t5_train,
+         w_t5_test,
+         true_L_train,
+         true_L_test,
+         true_R_train,
+         true_R_test) = load_t5_t5_pairs(self.pairs_t5t5)
+        # print(X_left_test.shape)
 
         print(f"Loading T5-PLS pairs from {self.pairs_t5pls}")
         (X_pls_train,
@@ -126,88 +128,96 @@ class PCAPlotter:
          w_pls_train,
          w_pls_test) = load_t5_pls_pairs(self.pairs_t5pls)
 
+        print(f"Choosing dataset for PCA: {self.pca_dataset}")
+        if self.pca_dataset == "train":
+            self.x_t5 = X_left_train
+            self.x_pls = X_pls_train
+        elif self.pca_dataset == "test":
+            self.x_t5 = X_left_test
+            self.x_pls = X_pls_test
+        else:
+            raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
+
+
+    def load_embedding_networks(self):
 
         print("Loading embedding networks")
-        embed_t5 = EmbeddingNetT5()
-        embed_pls = EmbeddingNetpLS()
+        self.embed_t5 = EmbeddingNetT5()
+        self.embed_pls = EmbeddingNetpLS()
         if not self.model_weights:
             print("No model weights provided, using header weights")
-            embed_t5.load_from_header()
-            embed_pls.load_from_header()
+            self.embed_t5.load_from_header()
+            self.embed_pls.load_from_header()
         else:
             print(f"Loading model weights from {self.model_weights}")
             checkpoint = torch.load(self.model_weights)
-            embed_t5.load_state_dict(checkpoint["embed_t5"])
-            embed_pls.load_state_dict(checkpoint["embed_pls"])
-        embed_t5.eval()
-        embed_pls.eval()
+            self.embed_t5.load_state_dict(checkpoint["embed_t5"])
+            self.embed_pls.load_state_dict(checkpoint["embed_pls"])
+        self.embed_t5.eval()
+        self.embed_pls.eval()
 
         if self.other_model:
             print(f"Loading other model weights from {self.other_model}")
             other_checkpoint = torch.load(self.other_model)
-            embed_t5_other = EmbeddingNetT5()
-            embed_pls_other = EmbeddingNetpLS()
-            embed_t5_other.load_state_dict(other_checkpoint["embed_t5"])
-            embed_pls_other.load_state_dict(other_checkpoint["embed_pls"])
-            embed_t5_other.eval()
-            embed_pls_other.eval()
+            self.embed_t5_other = EmbeddingNetT5()
+            self.embed_pls_other = EmbeddingNetpLS()
+            self.embed_t5_other.load_state_dict(other_checkpoint["embed_t5"])
+            self.embed_pls_other.load_state_dict(other_checkpoint["embed_pls"])
+            self.embed_t5_other.eval()
+            self.embed_pls_other.eval()
 
-        print(f"Choosing dataset for PCA: {self.pca_dataset}")
-        if self.pca_dataset == "train":
-            x_t5 = X_left_train
-            x_pls = X_pls_train
-        elif self.pca_dataset == "test":
-            x_t5 = X_left_test
-            x_pls = X_pls_test
-        else:
-            raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
+
+    def plot(self):
+
 
         print("Embedding T5s and PLSs")
-        x_t5 = torch.tensor(x_t5[:, :-BONUS_FEATURES], requires_grad=False)
-        x_pls = torch.tensor(x_pls[:, :-BONUS_FEATURES], requires_grad=False)
-        embedded_t5 = embed_t5(x_t5).detach().numpy()
-        embedded_pls = embed_pls(x_pls).detach().numpy()
+        self.x_t5 = torch.tensor(self.x_t5[:, :-BONUS_FEATURES], requires_grad=False)
+        self.x_pls = torch.tensor(self.x_pls[:, :-BONUS_FEATURES], requires_grad=False)
+        embedded_t5 = self.embed_t5(self.x_t5).detach().numpy()
+        embedded_pls = self.embed_pls(self.x_pls).detach().numpy()
         print(f"Embedded T5s shape: {embedded_t5.shape}")
         print(f"Embedded PLSs shape: {embedded_pls.shape}")
         if self.other_model:
             print("Embedding T5s and PLSs with other model")
-            embedded_t5_other = embed_t5_other(x_t5).detach().numpy()
-            embedded_pls_other = embed_pls_other(x_pls).detach().numpy()
+            embedded_t5_other = self.embed_t5_other(self.x_t5).detach().numpy()
+            embedded_pls_other = self.embed_pls_other(self.x_pls).detach().numpy()
             print(f"Other Embedded T5s shape: {embedded_t5_other.shape}")
             print(f"Other Embedded PLSs shape: {embedded_pls_other.shape}")
 
+        self.x_t5 = self.x_t5.detach().numpy()
+        self.x_pls = self.x_pls.detach().numpy()
+
+
         # add engineered features to the feature vectors
-        x_t5 = x_t5.detach().numpy()
-        x_pls = x_pls.detach().numpy()
         if self.engineer:
 
             # T5
-            eng_t5_eta = x_t5[:, 0] * 2.5
-            eng_t5_phi = np.arctan2(x_t5[:, 2], x_t5[:, 1])
-            eng_t5_pt = (x_t5[:, 21] ** -1) * k2Rinv1GeVf * 2
-            eng_t5_max_disp = np.maximum(x_t5[:, 26], x_t5[:, 26] + x_t5[:, 29])
+            eng_t5_eta = self.x_t5[:, 0] * 2.5
+            eng_t5_phi = np.arctan2(self.x_t5[:, 2], self.x_t5[:, 1])
+            eng_t5_pt = (self.x_t5[:, 21] ** -1) * k2Rinv1GeVf * 2
+            eng_t5_max_disp = np.maximum(self.x_t5[:, 26], self.x_t5[:, 26] + self.x_t5[:, 29])
 
             # PLS
-            eng_pls_eta = x_pls[:, 0] * 4.0
-            eng_pls_phi = np.arctan2(x_pls[:, 3], x_pls[:, 2])
-            eng_pls_rinv = (10 ** x_pls[:, 9]) ** -1.0
-            eng_pls_pt = x_pls[:, 4] ** -1
-            eng_pls_center_r = np.sqrt((10 ** x_pls[:, 7]) ** 2 + (10 ** x_pls[:, 8]) ** 2)
+            eng_pls_eta = self.x_pls[:, 0] * 4.0
+            eng_pls_phi = np.arctan2(self.x_pls[:, 3], self.x_pls[:, 2])
+            eng_pls_rinv = (10 ** self.x_pls[:, 9]) ** -1.0
+            eng_pls_pt = self.x_pls[:, 4] ** -1
+            eng_pls_center_r = np.sqrt((10 ** self.x_pls[:, 7]) ** 2 + (10 ** self.x_pls[:, 8]) ** 2)
 
             # Combine
-            x_t5 = np.concatenate((x_t5,
-                                   eng_t5_eta.reshape(-1, 1),
-                                   eng_t5_phi.reshape(-1, 1),
-                                   eng_t5_pt.reshape(-1, 1),
-                                   eng_t5_max_disp.reshape(-1, 1),
-                                   ), axis=1)
-            x_pls = np.concatenate((x_pls,
-                                    eng_pls_eta.reshape(-1, 1),
-                                    eng_pls_phi.reshape(-1, 1),
-                                    eng_pls_rinv.reshape(-1, 1),
-                                    eng_pls_pt.reshape(-1, 1),
-                                    eng_pls_center_r.reshape(-1, 1),
-                                    ), axis=1)
+            self.x_t5 = np.concatenate((self.x_t5,
+                                        eng_t5_eta.reshape(-1, 1),
+                                        eng_t5_phi.reshape(-1, 1),
+                                        eng_t5_pt.reshape(-1, 1),
+                                        eng_t5_max_disp.reshape(-1, 1),
+                                        ), axis=1)
+            self.x_pls = np.concatenate((self.x_pls,
+                                         eng_pls_eta.reshape(-1, 1),
+                                         eng_pls_phi.reshape(-1, 1),
+                                         eng_pls_rinv.reshape(-1, 1),
+                                         eng_pls_pt.reshape(-1, 1),
+                                         eng_pls_center_r.reshape(-1, 1),
+                                         ), axis=1)
 
 
         # bookkeeping
@@ -308,8 +318,8 @@ class PCAPlotter:
             for dim in range(self.n_pca):
                 print(f"Plotting PCA Component {dim} correlations with features")
                 for (name, slc, sample) in [
-                    ("T5", t5s, x_t5),
-                    ("PLS", pls, x_pls),
+                    ("T5", t5s, self.x_t5),
+                    ("PLS", pls, self.x_pls),
                 ]:
                     if self.quickplot and dim > 2:
                         break
