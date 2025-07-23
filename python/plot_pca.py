@@ -49,28 +49,59 @@ def options():
 
 def main():
     args = options()
-    plotter = PCAPlotter(args)
+    plotter = PCAPlotter(pdf_name=args.pdf,
+                         features_t5=args.features_t5,
+                         features_pls=args.features_pls,
+                         pairs_t5t5=args.pairs_t5t5,
+                         pairs_t5pls=args.pairs_t5pls,
+                         model_weights=args.model,
+                         other_model=args.other_model,
+                         n_pca=args.n_pca,
+                         pca_dataset=args.pca_dataset,
+                         engineer=args.engineer,
+                         checkmath=args.checkmath,
+                         tsne=args.tsne,
+                         quickplot=args.quickplot,
+                         )
+    plotter.plot()
 
 
 class PCAPlotter:
 
-    def __init__(self, args):
+    def __init__(self,
+                 pdf_name,
+                 features_t5,
+                 features_pls,
+                 pairs_t5t5,
+                 pairs_t5pls,
+                 model_weights,
+                 other_model,
+                 n_pca,
+                 pca_dataset,
+                 engineer,
+                 checkmath,
+                 tsne,
+                 quickplot,
+                 ):
 
-        pdf_name = args.pdf
-        features_t5 = args.features_t5
-        features_pls = args.features_pls
-        pairs_t5t5 = args.pairs_t5t5
-        pairs_t5pls = args.pairs_t5pls
-        model_weights = args.model
-        other_model = args.other_model
-        n_pca = args.n_pca
-        engineer = args.engineer
-        checkmath = args.checkmath
-        tsne = args.tsne
-        quickplot = args.quickplot
-        pca_dataset = args.pca_dataset
+        self.pdf_name = pdf_name
+        self.features_t5 = features_t5
+        self.features_pls = features_pls
+        self.pairs_t5t5 = pairs_t5t5
+        self.pairs_t5pls = pairs_t5pls
+        self.model_weights = model_weights
+        self.other_model = other_model
+        self.n_pca = n_pca
+        self.pca_dataset = pca_dataset
+        self.engineer = engineer
+        self.checkmath = checkmath
+        self.tsne = tsne
+        self.quickplot = quickplot
 
-        print(f"Loading T5-T5 pairs from {pairs_t5t5}")
+
+    def plot(self):
+
+        print(f"Loading T5-T5 pairs from {self.pairs_t5t5}")
         (X_left_train,
         X_left_test,
         X_right_train,
@@ -82,10 +113,10 @@ class PCAPlotter:
         true_L_train,
         true_L_test,
         true_R_train,
-        true_R_test) = load_t5_t5_pairs(pairs_t5t5)
+        true_R_test) = load_t5_t5_pairs(self.pairs_t5t5)
         print(X_left_test.shape)
 
-        print(f"Loading T5-PLS pairs from {pairs_t5pls}")
+        print(f"Loading T5-PLS pairs from {self.pairs_t5pls}")
         (X_pls_train,
          X_pls_test,
          X_t5raw_train,
@@ -93,27 +124,27 @@ class PCAPlotter:
          y_pls_train,
          y_pls_test,
          w_pls_train,
-         w_pls_test) = load_t5_pls_pairs(pairs_t5pls)
+         w_pls_test) = load_t5_pls_pairs(self.pairs_t5pls)
 
 
         print("Loading embedding networks")
         embed_t5 = EmbeddingNetT5()
         embed_pls = EmbeddingNetpLS()
-        if not model_weights:
+        if not self.model_weights:
             print("No model weights provided, using header weights")
             embed_t5.load_from_header()
             embed_pls.load_from_header()
         else:
-            print(f"Loading model weights from {model_weights}")
-            checkpoint = torch.load(model_weights)
+            print(f"Loading model weights from {self.model_weights}")
+            checkpoint = torch.load(self.model_weights)
             embed_t5.load_state_dict(checkpoint["embed_t5"])
             embed_pls.load_state_dict(checkpoint["embed_pls"])
         embed_t5.eval()
         embed_pls.eval()
 
-        if other_model:
-            print(f"Loading other model weights from {other_model}")
-            other_checkpoint = torch.load(other_model)
+        if self.other_model:
+            print(f"Loading other model weights from {self.other_model}")
+            other_checkpoint = torch.load(self.other_model)
             embed_t5_other = EmbeddingNetT5()
             embed_pls_other = EmbeddingNetpLS()
             embed_t5_other.load_state_dict(other_checkpoint["embed_t5"])
@@ -121,11 +152,11 @@ class PCAPlotter:
             embed_t5_other.eval()
             embed_pls_other.eval()
 
-        print(f"Choosing dataset for PCA: {pca_dataset}")
-        if pca_dataset == "train":
+        print(f"Choosing dataset for PCA: {self.pca_dataset}")
+        if self.pca_dataset == "train":
             x_t5 = X_left_train
             x_pls = X_pls_train
-        elif pca_dataset == "test":
+        elif self.pca_dataset == "test":
             x_t5 = X_left_test
             x_pls = X_pls_test
         else:
@@ -138,7 +169,7 @@ class PCAPlotter:
         embedded_pls = embed_pls(x_pls).detach().numpy()
         print(f"Embedded T5s shape: {embedded_t5.shape}")
         print(f"Embedded PLSs shape: {embedded_pls.shape}")
-        if other_model:
+        if self.other_model:
             print("Embedding T5s and PLSs with other model")
             embedded_t5_other = embed_t5_other(x_t5).detach().numpy()
             embedded_pls_other = embed_pls_other(x_pls).detach().numpy()
@@ -148,7 +179,7 @@ class PCAPlotter:
         # add engineered features to the feature vectors
         x_t5 = x_t5.detach().numpy()
         x_pls = x_pls.detach().numpy()
-        if engineer:
+        if self.engineer:
 
             # T5
             eng_t5_eta = x_t5[:, 0] * 2.5
@@ -186,13 +217,13 @@ class PCAPlotter:
         # do PCA
         print("Performing PCA on embedded T5s and PLSs")
         input = np.concatenate((embedded_t5, embedded_pls))
-        pca = PCA(n_components=n_pca)
+        pca = PCA(n_components=self.n_pca)
         proj = pca.fit_transform(input)
         print(f"Combined PCA projection shape: {proj.shape}")
-        if other_model:
+        if self.other_model:
             print("Performing PCA on other model's embedded T5s and PLSs")
             input_other = np.concatenate((embedded_t5_other, embedded_pls_other))
-            pca_other = PCA(n_components=n_pca)
+            pca_other = PCA(n_components=self.n_pca)
             proj_other = pca_other.fit_transform(input_other)
             print(f"Other model PCA projection shape: {proj_other.shape}")
 
@@ -203,7 +234,7 @@ class PCAPlotter:
         print(f"Principal components shape: {pca.components_.shape}")
 
         # Check by hand
-        if checkmath:
+        if self.checkmath:
             ncheck = 2
             print(f"Principal components:")
             print(f"{pca.components_}")
@@ -218,7 +249,7 @@ class PCAPlotter:
             print(proj[pls][:ncheck])
 
         # Check if PCA preserves the distances
-        if checkmath:
+        if self.checkmath:
             x1 = embedded_t5[:5]
             x2 = embedded_t5[5:10]
             distance_emb = np.linalg.norm(x1 - x2, axis=1)
@@ -228,7 +259,7 @@ class PCAPlotter:
             print(f"Distances in PCA space: {distance_pca}")
 
         # t-SNE? On the todo list
-        if tsne:
+        if self.tsne:
             print("Performing t-SNE")
             tsne = TSNE(n_components=2, perplexity=30, random_state=42)
             tsne_t5 = tsne.fit_transform(embedded_t5)
@@ -241,12 +272,12 @@ class PCAPlotter:
         bins = 100
 
         print("Plotting!")
-        with PdfPages(pdf_name) as pdf:
+        with PdfPages(self.pdf_name) as pdf:
 
             # PCA components
             print("Plotting PCA components")
             fig, ax = plt.subplots(figsize=(8, 8))
-            for dim in range(n_pca):
+            for dim in range(self.n_pca):
                 ax.hist(proj[:, dim], bins=bins, label=f"PCA Component {dim}",
                         histtype="step", lw=2, color=f"C{dim}")
             ax.set_xlabel("Value in PCA embedding")
@@ -260,9 +291,9 @@ class PCAPlotter:
 
             # Correlations of different PCA components
             print(f"Plotting PCA Component i vs j")
-            fig, ax = plt.subplots(figsize=(40, 40), nrows=n_pca, ncols=n_pca)
-            for dim_i in range(n_pca):
-                for dim_j in range(dim_i, n_pca):
+            fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
+            for dim_i in range(self.n_pca):
+                for dim_j in range(dim_i, self.n_pca):
                     corr = np.corrcoef(proj[:, dim_i], proj[:, dim_j])[0, 1]
                     _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
                     ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
@@ -274,17 +305,17 @@ class PCAPlotter:
             plt.close()
 
             # feature correlation check
-            for dim in range(n_pca):
+            for dim in range(self.n_pca):
                 print(f"Plotting PCA Component {dim} correlations with features")
                 for (name, slc, sample) in [
                     ("T5", t5s, x_t5),
                     ("PLS", pls, x_pls),
                 ]:
-                    if quickplot and dim > 2:
+                    if self.quickplot and dim > 2:
                         break
                     n_features = sample.shape[1]
                     for feature in range(n_features):
-                        if quickplot and feature > 5:
+                        if self.quickplot and feature > 5:
                             break
                         feat_name = feature_name(name, feature)
                         this_bins = feature_binning(dim, feat_name)
@@ -302,13 +333,13 @@ class PCAPlotter:
 
 
             # other model?
-            if other_model:
+            if self.other_model:
 
                 # everything at once
                 print(f"Plotting PCA Component i vs j for model vs other model")
-                fig, ax = plt.subplots(figsize=(40, 40), nrows=n_pca, ncols=n_pca)
-                for dim_i in range(n_pca):
-                    for dim_j in range(dim_i, n_pca):
+                fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
+                for dim_i in range(self.n_pca):
+                    for dim_j in range(dim_i, self.n_pca):
                         corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
                         _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
                         ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
@@ -320,7 +351,7 @@ class PCAPlotter:
                 plt.close()
 
                 # only diagonal terms
-                for dim_i in range(n_pca):
+                for dim_i in range(self.n_pca):
                     print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
                     fig, ax = plt.subplots(figsize=(8, 8))
                     _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=bins, cmap=cmap, cmin=cmin)
