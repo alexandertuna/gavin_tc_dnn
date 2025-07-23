@@ -93,7 +93,9 @@ branches_list += [
     'pLS_py',
     'pLS_pz',
     'pLS_isQuad',
-    'pLS_isFake'
+    'pLS_isFake',
+    #'pLS_deltaPhi',
+    #'pLS_charge',
 ]
 
 # Hit-dependent branches
@@ -533,6 +535,7 @@ class Preprocessor:
                 ptIn = branches['pLS_ptIn'][ev][i]
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
+                # deltaPhi = branches['pLS_deltaPhi'][ev][i]
 
                 # ――― build feature vector -------------------------------------------
                 f = [
@@ -546,6 +549,7 @@ class Preprocessor:
                     np.log10(circleCenterX),
                     np.log10(circleCenterY),
                     np.log10(circleRadius),
+                    # deltaPhi,
 
                     # bonus features
                     ev,
