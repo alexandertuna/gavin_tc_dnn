@@ -65,6 +65,8 @@ def main():
                          )
     plotter.load_data()
     plotter.load_embedding_networks()
+    plotter.embed_data()
+    plotter.engineer_features()
     plotter.plot()
 
 
@@ -167,26 +169,31 @@ class PCAPlotter:
             self.embed_pls_other.eval()
 
 
-    def plot(self):
-
+    def embed_data(self):
 
         print("Embedding T5s and PLSs")
         self.x_t5 = torch.tensor(self.x_t5[:, :-BONUS_FEATURES], requires_grad=False)
         self.x_pls = torch.tensor(self.x_pls[:, :-BONUS_FEATURES], requires_grad=False)
-        embedded_t5 = self.embed_t5(self.x_t5).detach().numpy()
-        embedded_pls = self.embed_pls(self.x_pls).detach().numpy()
-        print(f"Embedded T5s shape: {embedded_t5.shape}")
-        print(f"Embedded PLSs shape: {embedded_pls.shape}")
+        self.embedded_t5 = self.embed_t5(self.x_t5).detach().numpy()
+        self.embedded_pls = self.embed_pls(self.x_pls).detach().numpy()
+        print(f"Embedded T5s shape: {self.embedded_t5.shape}")
+        print(f"Embedded PLSs shape: {self.embedded_pls.shape}")
         if self.other_model:
             print("Embedding T5s and PLSs with other model")
-            embedded_t5_other = self.embed_t5_other(self.x_t5).detach().numpy()
-            embedded_pls_other = self.embed_pls_other(self.x_pls).detach().numpy()
-            print(f"Other Embedded T5s shape: {embedded_t5_other.shape}")
-            print(f"Other Embedded PLSs shape: {embedded_pls_other.shape}")
+            self.embedded_t5_other = self.embed_t5_other(self.x_t5).detach().numpy()
+            self.embedded_pls_other = self.embed_pls_other(self.x_pls).detach().numpy()
+            print(f"Other Embedded T5s shape: {self.embedded_t5_other.shape}")
+            print(f"Other Embedded PLSs shape: {self.embedded_pls_other.shape}")
 
+        # detorchify
         self.x_t5 = self.x_t5.detach().numpy()
         self.x_pls = self.x_pls.detach().numpy()
 
+        # bookkeeping
+        self.t5s = slice(0, len(self.embedded_t5))
+        self.pls = slice(len(self.embedded_t5), len(self.embedded_t5) + len(self.embedded_pls))
+
+    def engineer_features(self):
 
         # add engineered features to the feature vectors
         if self.engineer:
@@ -220,19 +227,17 @@ class PCAPlotter:
                                          ), axis=1)
 
 
-        # bookkeeping
-        t5s = slice(0, len(embedded_t5))
-        pls = slice(len(embedded_t5), len(embedded_t5) + len(embedded_pls))
+    def plot(self):
 
         # do PCA
         print("Performing PCA on embedded T5s and PLSs")
-        input = np.concatenate((embedded_t5, embedded_pls))
+        input = np.concatenate((self.embedded_t5, self.embedded_pls))
         pca = PCA(n_components=self.n_pca)
         proj = pca.fit_transform(input)
         print(f"Combined PCA projection shape: {proj.shape}")
         if self.other_model:
             print("Performing PCA on other model's embedded T5s and PLSs")
-            input_other = np.concatenate((embedded_t5_other, embedded_pls_other))
+            input_other = np.concatenate((self.embedded_t5_other, self.embedded_pls_other))
             pca_other = PCA(n_components=self.n_pca)
             proj_other = pca_other.fit_transform(input_other)
             print(f"Other model PCA projection shape: {proj_other.shape}")
@@ -249,19 +254,19 @@ class PCAPlotter:
             print(f"Principal components:")
             print(f"{pca.components_}")
             print(f"Mean of the input data: {pca.mean_}")
-            print(f"Embedded T5s shape and first {ncheck}: {embedded_t5.shape}")
-            print(embedded_t5[:ncheck])
-            print(f"Embedded PLSs shape and first {ncheck}: {embedded_pls.shape}")
-            print(embedded_pls[:ncheck])
-            print(f"PCA projection shape and first {ncheck} T5s: {proj[t5s].shape}")
-            print(proj[t5s][:ncheck])
-            print(f"PCA projection shape and first {ncheck} PLSs: {proj[pls].shape}")
-            print(proj[pls][:ncheck])
+            print(f"Embedded T5s shape and first {ncheck}: {self.embedded_t5.shape}")
+            print(self.embedded_t5[:ncheck])
+            print(f"Embedded PLSs shape and first {ncheck}: {self.embedded_pls.shape}")
+            print(self.embedded_pls[:ncheck])
+            print(f"PCA projection shape and first {ncheck} T5s: {proj[self.t5s].shape}")
+            print(proj[self.t5s][:ncheck])
+            print(f"PCA projection shape and first {ncheck} PLSs: {proj[self.pls].shape}")
+            print(proj[self.pls][:ncheck])
 
         # Check if PCA preserves the distances
         if self.checkmath:
-            x1 = embedded_t5[:5]
-            x2 = embedded_t5[5:10]
+            x1 = self.embedded_t5[:5]
+            x2 = self.embedded_t5[5:10]
             distance_emb = np.linalg.norm(x1 - x2, axis=1)
             distance_pca = np.linalg.norm(pca.transform(x1) - pca.transform(x2), axis=1)
             print("Distance check:")
@@ -272,8 +277,8 @@ class PCAPlotter:
         if self.tsne:
             print("Performing t-SNE")
             tsne = TSNE(n_components=2, perplexity=30, random_state=42)
-            tsne_t5 = tsne.fit_transform(embedded_t5)
-            tsne_pls = tsne.fit_transform(embedded_pls)
+            tsne_t5 = tsne.fit_transform(self.embedded_t5)
+            tsne_pls = tsne.fit_transform(self.embedded_pls)
 
         # plot options
         cmap = "hot"
@@ -318,8 +323,8 @@ class PCAPlotter:
             for dim in range(self.n_pca):
                 print(f"Plotting PCA Component {dim} correlations with features")
                 for (name, slc, sample) in [
-                    ("T5", t5s, self.x_t5),
-                    ("PLS", pls, self.x_pls),
+                    ("T5", self.t5s, self.x_t5),
+                    ("PLS", self.pls, self.x_pls),
                 ]:
                     if self.quickplot and dim > 2:
                         break
@@ -377,8 +382,8 @@ class PCAPlotter:
 
 
             # sample checks
-            for (proj_data, title) in [(proj[t5s], "PCA Projection: T5s"),
-                                       (proj[pls], "PCA Projection: PLSs"),
+            for (proj_data, title) in [(proj[self.t5s], "PCA Projection: T5s"),
+                                       (proj[self.pls], "PCA Projection: PLSs"),
                                        (proj, "PCA Projection: T5s and PLSs"),
                                        ]:
                 print(f"Plotting {title}")
