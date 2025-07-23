@@ -63,6 +63,12 @@ class PCAPlotter:
         pairs_t5pls = args.pairs_t5pls
         model_weights = args.model
         other_model = args.other_model
+        n_pca = args.n_pca
+        engineer = args.engineer
+        checkmath = args.checkmath
+        tsne = args.tsne
+        quickplot = args.quickplot
+        pca_dataset = args.pca_dataset
 
         print(f"Loading T5-T5 pairs from {pairs_t5t5}")
         (X_left_train,
@@ -115,11 +121,11 @@ class PCAPlotter:
             embed_t5_other.eval()
             embed_pls_other.eval()
 
-        print(f"Choosing dataset for PCA: {args.pca_dataset}")
-        if args.pca_dataset == "train":
+        print(f"Choosing dataset for PCA: {pca_dataset}")
+        if pca_dataset == "train":
             x_t5 = X_left_train
             x_pls = X_pls_train
-        elif args.pca_dataset == "test":
+        elif pca_dataset == "test":
             x_t5 = X_left_test
             x_pls = X_pls_test
         else:
@@ -142,7 +148,7 @@ class PCAPlotter:
         # add engineered features to the feature vectors
         x_t5 = x_t5.detach().numpy()
         x_pls = x_pls.detach().numpy()
-        if args.engineer:
+        if engineer:
 
             # T5
             eng_t5_eta = x_t5[:, 0] * 2.5
@@ -180,13 +186,13 @@ class PCAPlotter:
         # do PCA
         print("Performing PCA on embedded T5s and PLSs")
         input = np.concatenate((embedded_t5, embedded_pls))
-        pca = PCA(n_components=args.n_pca)
+        pca = PCA(n_components=n_pca)
         proj = pca.fit_transform(input)
         print(f"Combined PCA projection shape: {proj.shape}")
         if other_model:
             print("Performing PCA on other model's embedded T5s and PLSs")
             input_other = np.concatenate((embedded_t5_other, embedded_pls_other))
-            pca_other = PCA(n_components=args.n_pca)
+            pca_other = PCA(n_components=n_pca)
             proj_other = pca_other.fit_transform(input_other)
             print(f"Other model PCA projection shape: {proj_other.shape}")
 
@@ -197,7 +203,7 @@ class PCAPlotter:
         print(f"Principal components shape: {pca.components_.shape}")
 
         # Check by hand
-        if args.checkmath:
+        if checkmath:
             ncheck = 2
             print(f"Principal components:")
             print(f"{pca.components_}")
@@ -212,7 +218,7 @@ class PCAPlotter:
             print(proj[pls][:ncheck])
 
         # Check if PCA preserves the distances
-        if args.checkmath:
+        if checkmath:
             x1 = embedded_t5[:5]
             x2 = embedded_t5[5:10]
             distance_emb = np.linalg.norm(x1 - x2, axis=1)
@@ -222,7 +228,7 @@ class PCAPlotter:
             print(f"Distances in PCA space: {distance_pca}")
 
         # t-SNE? On the todo list
-        if args.tsne:
+        if tsne:
             print("Performing t-SNE")
             tsne = TSNE(n_components=2, perplexity=30, random_state=42)
             tsne_t5 = tsne.fit_transform(embedded_t5)
@@ -240,7 +246,7 @@ class PCAPlotter:
             # PCA components
             print("Plotting PCA components")
             fig, ax = plt.subplots(figsize=(8, 8))
-            for dim in range(args.n_pca):
+            for dim in range(n_pca):
                 ax.hist(proj[:, dim], bins=bins, label=f"PCA Component {dim}",
                         histtype="step", lw=2, color=f"C{dim}")
             ax.set_xlabel("Value in PCA embedding")
@@ -254,9 +260,9 @@ class PCAPlotter:
 
             # Correlations of different PCA components
             print(f"Plotting PCA Component i vs j")
-            fig, ax = plt.subplots(figsize=(40, 40), nrows=args.n_pca, ncols=args.n_pca)
-            for dim_i in range(args.n_pca):
-                for dim_j in range(dim_i, args.n_pca):
+            fig, ax = plt.subplots(figsize=(40, 40), nrows=n_pca, ncols=n_pca)
+            for dim_i in range(n_pca):
+                for dim_j in range(dim_i, n_pca):
                     corr = np.corrcoef(proj[:, dim_i], proj[:, dim_j])[0, 1]
                     _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
                     ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
@@ -268,17 +274,17 @@ class PCAPlotter:
             plt.close()
 
             # feature correlation check
-            for dim in range(args.n_pca):
+            for dim in range(n_pca):
                 print(f"Plotting PCA Component {dim} correlations with features")
                 for (name, slc, sample) in [
                     ("T5", t5s, x_t5),
                     ("PLS", pls, x_pls),
                 ]:
-                    if args.quickplot and dim > 2:
+                    if quickplot and dim > 2:
                         break
                     n_features = sample.shape[1]
                     for feature in range(n_features):
-                        if args.quickplot and feature > 5:
+                        if quickplot and feature > 5:
                             break
                         feat_name = feature_name(name, feature)
                         this_bins = feature_binning(dim, feat_name)
@@ -300,9 +306,9 @@ class PCAPlotter:
 
                 # everything at once
                 print(f"Plotting PCA Component i vs j for model vs other model")
-                fig, ax = plt.subplots(figsize=(40, 40), nrows=args.n_pca, ncols=args.n_pca)
-                for dim_i in range(args.n_pca):
-                    for dim_j in range(dim_i, args.n_pca):
+                fig, ax = plt.subplots(figsize=(40, 40), nrows=n_pca, ncols=n_pca)
+                for dim_i in range(n_pca):
+                    for dim_j in range(dim_i, n_pca):
                         corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
                         _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
                         ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
@@ -314,7 +320,7 @@ class PCAPlotter:
                 plt.close()
 
                 # only diagonal terms
-                for dim_i in range(args.n_pca):
+                for dim_i in range(n_pca):
                     print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
                     fig, ax = plt.subplots(figsize=(8, 8))
                     _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=bins, cmap=cmap, cmin=cmin)
