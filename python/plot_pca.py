@@ -136,19 +136,33 @@ def main():
     x_t5 = x_t5.detach().numpy()
     x_pls = x_pls.detach().numpy()
     if args.engineer:
+
+        # T5
         eng_t5_eta = x_t5[:, 0] * 2.5
         eng_t5_phi = np.arctan2(x_t5[:, 2], x_t5[:, 1])
+        eng_t5_pt = (x_t5[:, 21] ** -1) * k2Rinv1GeVf * 2
+        eng_t5_max_disp = np.maximum(x_t5[:, 26], x_t5[:, 26] + x_t5[:, 29])
+
+        # PLS
         eng_pls_eta = x_pls[:, 0] * 4.0
         eng_pls_phi = np.arctan2(x_pls[:, 3], x_pls[:, 2])
         eng_pls_rinv = (10 ** x_pls[:, 9]) ** -1.0
+        eng_pls_pt = x_pls[:, 4] ** -1
+        eng_pls_center_r = np.sqrt((10 ** x_pls[:, 7]) ** 2 + (10 ** x_pls[:, 8]) ** 2)
+
+        # Combine
         x_t5 = np.concatenate((x_t5,
                                eng_t5_eta.reshape(-1, 1),
                                eng_t5_phi.reshape(-1, 1),
+                               eng_t5_pt.reshape(-1, 1),
+                               eng_t5_max_disp.reshape(-1, 1),
                                ), axis=1)
         x_pls = np.concatenate((x_pls,
                                 eng_pls_eta.reshape(-1, 1),
                                 eng_pls_phi.reshape(-1, 1),
                                 eng_pls_rinv.reshape(-1, 1),
+                                eng_pls_pt.reshape(-1, 1),
+                                eng_pls_center_r.reshape(-1, 1),
                                 ), axis=1)
 
 
@@ -190,6 +204,16 @@ def main():
         print(f"PCA projection shape and first {ncheck} PLSs: {proj[pls].shape}")
         print(proj[pls][:ncheck])
 
+    # Check if PCA preserves the distances
+    if args.checkmath:
+        x1 = embedded_t5[:5]
+        x2 = embedded_t5[5:10]
+        distance_emb = np.linalg.norm(x1 - x2, axis=1)
+        distance_pca = np.linalg.norm(pca.transform(x1) - pca.transform(x2), axis=1)
+        print("Distance check:")
+        print(f"Distances in embedded space: {distance_emb}")
+        print(f"Distances in PCA space: {distance_pca}")
+
     # t-SNE? On the todo list
     if args.tsne:
         print("Performing t-SNE")
@@ -201,9 +225,25 @@ def main():
     cmap = "hot"
     cmin = 0.5
     pad = 0.01
+    bins = 100
 
     print("Plotting!")
     with PdfPages(pdf_name) as pdf:
+
+        # PCA components
+        print("Plotting PCA components")
+        fig, ax = plt.subplots(figsize=(8, 8))
+        for dim in range(args.n_pca):
+            ax.hist(proj[:, dim], bins=bins, label=f"PCA Component {dim}",
+                    histtype="step", lw=2, color=f"C{dim}")
+        ax.set_xlabel("Value in PCA embedding")
+        ax.set_ylabel("Tracks")
+        ax.set_title("PCA Components")
+        ax.legend()
+        ax.tick_params(right=True, top=True, which="both", direction="in")
+        fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+        pdf.savefig()
+        plt.close()
 
         # Correlations of different PCA components
         print(f"Plotting PCA Component i vs j")
@@ -211,7 +251,7 @@ def main():
         for dim_i in range(args.n_pca):
             for dim_j in range(dim_i, args.n_pca):
                 corr = np.corrcoef(proj[:, dim_i], proj[:, dim_j])[0, 1]
-                _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=100, cmap=cmap, cmin=cmin)
+                _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
                 ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
                 ax[dim_i, dim_j].set_ylabel(f"PCA Component {dim_j}")
                 ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -231,11 +271,12 @@ def main():
                     break
                 n_features = sample.shape[1]
                 for feature in range(n_features):
-                    #if args.quickplot and feature > 5:
-                    #    break
+                    if args.quickplot and feature > 5:
+                        break
                     feat_name = feature_name(name, feature)
+                    this_bins = feature_binning(dim, feat_name)
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=100, cmap=cmap, cmin=cmin)
+                    _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=cmap, cmin=cmin)
                     ax.set_xlabel(f"PCA Component {dim}")
                     ax.set_ylabel(f"{name} Feature {feature}: {feat_name}")
                     ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
@@ -256,7 +297,7 @@ def main():
             for dim_i in range(args.n_pca):
                 for dim_j in range(dim_i, args.n_pca):
                     corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
-                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=100, cmap=cmap, cmin=cmin)
+                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=bins, cmap=cmap, cmin=cmin)
                     ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
                     ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
                     ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -269,7 +310,7 @@ def main():
             for dim_i in range(args.n_pca):
                 print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
                 fig, ax = plt.subplots(figsize=(8, 8))
-                _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=100, cmap=cmap, cmin=cmin)
+                _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=bins, cmap=cmap, cmin=cmin)
                 ax.set_xlabel(f"Model PCA Component {dim_i}")
                 ax.set_ylabel(f"Other Model PCA Component {dim_i}")
                 ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
@@ -289,7 +330,7 @@ def main():
             print(f"Plotting {title}")
             for norm in [None, colors.LogNorm()]:
                 fig, ax = plt.subplots(figsize=(8, 8))
-                _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=100, cmap=cmap, cmin=cmin, norm=norm)
+                _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=bins, cmap=cmap, cmin=cmin, norm=norm)
                 ax.set_xlabel("PCA Component 0")
                 ax.set_ylabel("PCA Component 1")
                 ax.set_title(title)
@@ -311,6 +352,18 @@ def main():
     # Look for trends
     # Look at PCA decomposition
 
+
+def feature_binning(dim: int, feat_name: str):
+    bins = 100
+    if dim == 0 and feat_name == "pT":
+        return [bins, np.linspace(0.4, 5, 100)]
+    elif dim == 1 and feat_name == "pT":
+        return [np.linspace(-3, 2.5, 100), np.linspace(0.4, 5, 100)]
+    elif feat_name == "circleCenterR":
+        if dim == 1:
+            return [np.linspace(-3, 2.5, 100), np.linspace(0, 300, 100)]
+        return [bins, np.linspace(0, 300, 100)]
+    return bins
 
 def feature_name(name: str, feature: int) -> str:
     if name == "T5":
@@ -394,6 +447,10 @@ def feature_name_t5(feature: int) -> str:
         return "eta"
     elif feature == 31:
         return "phi"
+    elif feature == 32:
+        return "pT"
+    elif feature == 33:
+        return "max(disp_Inner, disp_Outer)"
 
     else:
         raise ValueError(f"Unknown T5 feature index: {feature}")
@@ -428,6 +485,10 @@ def feature_name_pls(feature: int) -> str:
         return "phi"
     elif feature == 12:
         return "1 / R"
+    elif feature == 13:
+        return "pT"
+    elif feature == 14:
+        return "circleCenterR"
 
     else:
         raise ValueError(f"Unknown PLS feature index: {feature}")
