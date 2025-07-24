@@ -152,7 +152,7 @@ class PCAPlotter:
         self.x_pls_test = X_pls_test
         self.x_t5_test = X_t5raw_test
         self.y_pls_test = y_pls_test
-        self.x_diff_test = self.x_left_test - self.x_right_test
+        self.x_diff_test = (self.x_left_test - self.x_right_test)[:, :-BONUS_FEATURES]
 
 
     def load_embedding_networks(self):
@@ -314,7 +314,6 @@ class PCAPlotter:
 
     def plot(self):
 
-
         # plot options
         self.cmap = "hot"
         self.cmin = 0.5
@@ -325,16 +324,20 @@ class PCAPlotter:
         with PdfPages(self.pdf_name) as pdf:
 
             dup, nodup = 0, 1
-            dims = range(-1, 3) # self.n_pca
+            dims = range(-1, 6) # self.n_pca
             bins = {}
-            bins["d"] = np.linspace(0, 2, 101)
+            # bins["d"] = np.linspace(0, 2, 101)
+            bins["d"] = np.logspace(-4, 1, 101)
 
             for status in [dup, nodup]:
 
+                print(f"Plotting T5-T5 pairs for status {status}")
                 mask = self.y_t5_test == status
                 title = "duplicate" if status == dup else "non-duplicate"
 
                 for dim in dims:
+
+                    print(f"Plotting PCA dim {dim} for T5-T5 pairs")
 
                     # the distance to plot
                     if dim == -1:
@@ -342,7 +345,8 @@ class PCAPlotter:
                     else:
                         dist = self.proj_x_l[:, dim] - self.proj_x_r[:, dim]
 
-                    for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+                    for feature in range(self.x_diff_test.shape[1]):
+                    # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
                     # for feature in [0]:
                         fig, ax = plt.subplots(figsize=(8, 8))
                         feat_mask = mask & (self.x_diff_test[:, feature] != 0)
@@ -350,7 +354,8 @@ class PCAPlotter:
                         numer, denom = np.sum(mask & (self.x_diff_test[:, feature] == 0)), np.sum(mask)
                         excluded = f"{int(100*numer/denom)}%"
                         counts, xbins, ybins, im = ax.hist2d(dist[feat_mask],
-                                                             np.abs(self.x_diff_test[feat_mask, feature]),
+                                                            #  np.abs(self.x_diff_test[feat_mask, feature]),
+                                                             self.x_diff_test[feat_mask, feature],
                                                              bins=(bins["d"], 100),
                                                              cmap=self.cmap, cmin=self.cmin)
                         # ax.contour(counts.transpose(),
@@ -361,6 +366,7 @@ class PCAPlotter:
                         ax.set_title(f"T5-T5 pairs: {title}. Excluding {excluded}")
                         ax.tick_params(right=True, top=True, which="both", direction="in")
                         ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
+                        ax.semilogx()
                         fig.colorbar(im, ax=ax, pad=self.pad)
                         fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
                         pdf.savefig()
