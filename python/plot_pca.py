@@ -3,6 +3,8 @@ import numpy as np
 import torch
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+import matplotlib as mpl
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import colors
@@ -67,6 +69,9 @@ def main():
     plotter.load_embedding_networks()
     plotter.embed_data()
     plotter.engineer_features()
+    plotter.do_pca()
+    plotter.check_math()
+    plotter.do_tsne()
     plotter.plot()
 
 
@@ -147,6 +152,7 @@ class PCAPlotter:
         self.x_pls_test = X_pls_test
         self.x_t5_test = X_t5raw_test
         self.y_pls_test = y_pls_test
+        self.x_diff_test = self.x_left_test - self.x_right_test
 
 
     def load_embedding_networks(self):
@@ -242,51 +248,61 @@ class PCAPlotter:
                                          ), axis=1)
 
 
-    def plot(self):
+    def do_pca(self):
 
         # do PCA
         print("Performing PCA on embedded T5s and PLSs")
         input = np.concatenate((self.embedded_t5, self.embedded_pls))
-        pca = PCA(n_components=self.n_pca)
-        proj = pca.fit_transform(input)
-        print(f"Combined PCA projection shape: {proj.shape}")
+        self.pca = PCA(n_components=self.n_pca)
+        self.proj = self.pca.fit_transform(input)
+        print(f"Combined PCA projection shape: {self.proj.shape}")
         if self.other_model:
             print("Performing PCA on other model's embedded T5s and PLSs")
             input_other = np.concatenate((self.embedded_t5_other, self.embedded_pls_other))
-            pca_other = PCA(n_components=self.n_pca)
-            proj_other = pca_other.fit_transform(input_other)
-            print(f"Other model PCA projection shape: {proj_other.shape}")
+            self.pca_other = PCA(n_components=self.n_pca)
+            self.proj_other = self.pca_other.fit_transform(input_other)
+            print(f"Other model PCA projection shape: {self.proj_other.shape}")
 
         # PCA results
         print("PCA results:")
-        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
-        print(f"Explained variance: {pca.explained_variance_}")
-        print(f"Principal components shape: {pca.components_.shape}")
+        print(f"Explained variance ratio: {self.pca.explained_variance_ratio_}")
+        print(f"Explained variance: {self.pca.explained_variance_}")
+        print(f"Principal components shape: {self.pca.components_.shape}")
+
+        # More PCA
+        self.proj_x_l = self.pca.transform(self.emb_x_l)
+        self.proj_x_r = self.pca.transform(self.emb_x_r)
+
+
+    def check_math(self):
 
         # Check by hand
         if self.checkmath:
             ncheck = 2
             print(f"Principal components:")
-            print(f"{pca.components_}")
-            print(f"Mean of the input data: {pca.mean_}")
+            print(f"{self.pca.components_}")
+            print(f"Mean of the input data: {self.pca.mean_}")
             print(f"Embedded T5s shape and first {ncheck}: {self.embedded_t5.shape}")
             print(self.embedded_t5[:ncheck])
             print(f"Embedded PLSs shape and first {ncheck}: {self.embedded_pls.shape}")
             print(self.embedded_pls[:ncheck])
-            print(f"PCA projection shape and first {ncheck} T5s: {proj[self.t5s].shape}")
-            print(proj[self.t5s][:ncheck])
-            print(f"PCA projection shape and first {ncheck} PLSs: {proj[self.pls].shape}")
-            print(proj[self.pls][:ncheck])
+            print(f"PCA projection shape and first {ncheck} T5s: {self.proj[self.t5s].shape}")
+            print(self.proj[self.t5s][:ncheck])
+            print(f"PCA projection shape and first {ncheck} PLSs: {self.proj[self.pls].shape}")
+            print(self.proj[self.pls][:ncheck])
 
         # Check if PCA preserves the distances
         if self.checkmath:
             x1 = self.embedded_t5[:5]
             x2 = self.embedded_t5[5:10]
             distance_emb = np.linalg.norm(x1 - x2, axis=1)
-            distance_pca = np.linalg.norm(pca.transform(x1) - pca.transform(x2), axis=1)
+            distance_pca = np.linalg.norm(self.pca.transform(x1) - self.pca.transform(x2), axis=1)
             print("Distance check:")
             print(f"Distances in embedded space: {distance_emb}")
             print(f"Distances in PCA space: {distance_pca}")
+
+
+    def do_tsne(self):
 
         # t-SNE? On the todo list
         if self.tsne:
@@ -294,6 +310,10 @@ class PCAPlotter:
             tsne = TSNE(n_components=2, perplexity=30, random_state=42)
             tsne_t5 = tsne.fit_transform(self.embedded_t5)
             tsne_pls = tsne.fit_transform(self.embedded_pls)
+
+
+    def plot(self):
+
 
         # plot options
         self.cmap = "hot"
@@ -305,25 +325,46 @@ class PCAPlotter:
         with PdfPages(self.pdf_name) as pdf:
 
             dup, nodup = 0, 1
-            # self.emb_x_l
+            dims = range(-1, 3) # self.n_pca
+            bins = {}
+            bins["d"] = np.linspace(0, 2, 101)
+
             for status in [dup, nodup]:
-                title = "duplicate" if status == dup else "non-duplicate"
+
                 mask = self.y_t5_test == status
-                for feature in [0]:
-                    fig, ax = plt.subplots(figsize=(8, 8))
-                    feat_mask = mask & (self.x_left_test[:, feature] != self.x_right_test[:, feature])
-                    counts, xbins, ybins, im = ax.hist2d(self.x_left_test[feat_mask, feature] - self.x_right_test[feat_mask, feature],
-                                                         self.d_t5t5[feat_mask], bins=100, cmap=self.cmap, cmin=self.cmin)
-                    ax.contour(counts.transpose(),
-                               extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]],
-                               linewidths=3, cmap=self.cmap, levels=[25, 50, 75, 100])
-                    ax.set_xlabel("Left - Right Feature")
-                    ax.set_ylabel("Euclidean distance")
-                    ax.set_title(f"T5-T5 pairs: {title}")
-                    ax.tick_params(right=True, top=True, which="both", direction="in")
-                    fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
-                    pdf.savefig()
-                    plt.close()
+                title = "duplicate" if status == dup else "non-duplicate"
+
+                for dim in dims:
+
+                    # the distance to plot
+                    if dim == -1:
+                        dist = self.d_t5t5
+                    else:
+                        dist = self.proj_x_l[:, dim] - self.proj_x_r[:, dim]
+
+                    for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+                    # for feature in [0]:
+                        fig, ax = plt.subplots(figsize=(8, 8))
+                        feat_mask = mask & (self.x_diff_test[:, feature] != 0)
+                        feat_name = feature_name("T5", feature)
+                        numer, denom = np.sum(mask & (self.x_diff_test[:, feature] == 0)), np.sum(mask)
+                        excluded = f"{int(100*numer/denom)}%"
+                        counts, xbins, ybins, im = ax.hist2d(dist[feat_mask],
+                                                             np.abs(self.x_diff_test[feat_mask, feature]),
+                                                             bins=(bins["d"], 100),
+                                                             cmap=self.cmap, cmin=self.cmin)
+                        # ax.contour(counts.transpose(),
+                        #            extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]],
+                        #            linewidths=3, cmap=self.cmap, levels=[25, 50, 75, 100])
+                        ax.set_xlabel(f"Euclidean distance, PCA dim {dim}")
+                        ax.set_ylabel(f"abs(Left - Right), feature {feature}: {feat_name}")
+                        ax.set_title(f"T5-T5 pairs: {title}. Excluding {excluded}")
+                        ax.tick_params(right=True, top=True, which="both", direction="in")
+                        ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
+                        fig.colorbar(im, ax=ax, pad=self.pad)
+                        fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+                        pdf.savefig()
+                        plt.close()
 
             return
 
@@ -331,7 +372,7 @@ class PCAPlotter:
             print("Plotting PCA components")
             fig, ax = plt.subplots(figsize=(8, 8))
             for dim in range(self.n_pca):
-                ax.hist(proj[:, dim], bins=bins, label=f"PCA Component {dim}",
+                ax.hist(self.proj[:, dim], bins=bins, label=f"PCA Component {dim}",
                         histtype="step", lw=2, color=f"C{dim}")
             ax.set_xlabel("Value in PCA embedding")
             ax.set_ylabel("Tracks")
@@ -347,8 +388,8 @@ class PCAPlotter:
             fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
             for dim_i in range(self.n_pca):
                 for dim_j in range(dim_i, self.n_pca):
-                    corr = np.corrcoef(proj[:, dim_i], proj[:, dim_j])[0, 1]
-                    _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
+                    corr = np.corrcoef(self.proj[:, dim_i], self.proj[:, dim_j])[0, 1]
+                    _, _, _, im = ax[dim_i, dim_j].hist2d(self.proj[:, dim_i], self.proj[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
                     ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
                     ax[dim_i, dim_j].set_ylabel(f"PCA Component {dim_j}")
                     ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -373,7 +414,7 @@ class PCAPlotter:
                         feat_name = feature_name(name, feature)
                         this_bins = feature_binning(dim, feat_name)
                         fig, ax = plt.subplots(figsize=(8, 8))
-                        _, _, _, im = ax.hist2d(proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
+                        _, _, _, im = ax.hist2d(self.proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
                         ax.set_xlabel(f"PCA Component {dim}")
                         ax.set_ylabel(f"{name} Feature {feature}: {feat_name}")
                         ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
@@ -393,8 +434,8 @@ class PCAPlotter:
                 fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
                 for dim_i in range(self.n_pca):
                     for dim_j in range(dim_i, self.n_pca):
-                        corr = np.corrcoef(proj[:, dim_i], proj_other[:, dim_j])[0, 1]
-                        _, _, _, im = ax[dim_i, dim_j].hist2d(proj[:, dim_i], proj_other[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
+                        corr = np.corrcoef(self.proj[:, dim_i], self.proj_other[:, dim_j])[0, 1]
+                        _, _, _, im = ax[dim_i, dim_j].hist2d(self.proj[:, dim_i], self.proj_other[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
                         ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
                         ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
                         ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
@@ -407,7 +448,7 @@ class PCAPlotter:
                 for dim_i in range(self.n_pca):
                     print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(proj[:, dim_i], proj_other[:, dim_i], bins=bins, cmap=self.cmap, cmin=self.cmin)
+                    _, _, _, im = ax.hist2d(self.proj[:, dim_i], self.proj_other[:, dim_i], bins=bins, cmap=self.cmap, cmin=self.cmin)
                     ax.set_xlabel(f"Model PCA Component {dim_i}")
                     ax.set_ylabel(f"Other Model PCA Component {dim_i}")
                     ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
@@ -420,14 +461,14 @@ class PCAPlotter:
 
 
             # sample checks
-            for (proj_data, title) in [(proj[self.t5s], "PCA Projection: T5s"),
-                                       (proj[self.pls], "PCA Projection: PLSs"),
-                                       (proj, "PCA Projection: T5s and PLSs"),
+            for (proj_data, title) in [(self.proj[self.t5s], "PCA Projection: T5s"),
+                                       (self.proj[self.pls], "PCA Projection: PLSs"),
+                                       (self.proj, "PCA Projection: T5s and PLSs"),
                                        ]:
                 print(f"Plotting {title}")
                 for norm in [None, colors.LogNorm()]:
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(proj_data[:, 0], proj_data[:, 1], bins=bins, cmap=self.cmap, cmin=self.cmin, norm=norm)
+                    _, _, _, im = ax.hist2d(self.proj_data[:, 0], self.proj_data[:, 1], bins=bins, cmap=self.cmap, cmin=self.cmin, norm=norm)
                     ax.set_xlabel("PCA Component 0")
                     ax.set_ylabel("PCA Component 1")
                     ax.set_title(title)
