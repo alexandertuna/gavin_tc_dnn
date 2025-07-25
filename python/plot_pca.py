@@ -46,6 +46,8 @@ def options():
                         help="Check the PCA math by printing some intermediate results")
     parser.add_argument("--engineer", action='store_true',
                         help="Engineer additional features for T5s and PLSs")
+    parser.add_argument("--draw_envelope", action='store_true',
+                        help="Draw envelope around 2d difference plots")
     return parser.parse_args()
 
 
@@ -64,6 +66,7 @@ def main():
                          checkmath=args.checkmath,
                          tsne=args.tsne,
                          quickplot=args.quickplot,
+                         draw_envelope=args.draw_envelope,
                          )
     plotter.load_data()
     plotter.load_embedding_networks()
@@ -91,6 +94,7 @@ class PCAPlotter:
                  checkmath,
                  tsne,
                  quickplot,
+                 draw_envelope,
                  ):
 
         self.pdf_name = pdf_name
@@ -106,6 +110,7 @@ class PCAPlotter:
         self.checkmath = checkmath
         self.tsne = tsne
         self.quickplot = quickplot
+        self.draw_envelope = draw_envelope
 
 
     def load_data(self):
@@ -326,8 +331,7 @@ class PCAPlotter:
             dup, nodup = 0, 1
             dims = range(-1, 6) # self.n_pca
             bins = {}
-            # bins["d"] = np.linspace(0, 2, 101)
-            bins["d"] = np.logspace(-4, 1, 101)
+            bins["d"] = np.logspace(-3, 1, 101)
 
             for status in [dup, nodup]:
 
@@ -336,6 +340,9 @@ class PCAPlotter:
                 title = "duplicate" if status == dup else "non-duplicate"
 
                 for dim in dims:
+
+                    if self.quickplot and dim > 1:
+                        break
 
                     print(f"Plotting PCA dim {dim} for T5-T5 pairs")
 
@@ -348,21 +355,28 @@ class PCAPlotter:
                     for feature in range(self.x_diff_test.shape[1]):
                     # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
                     # for feature in [0]:
+                        if self.quickplot and feature > 2:
+                            break
                         fig, ax = plt.subplots(figsize=(8, 8))
                         feat_mask = mask & (self.x_diff_test[:, feature] != 0)
                         feat_name = feature_name("T5", feature)
                         numer, denom = np.sum(mask & (self.x_diff_test[:, feature] == 0)), np.sum(mask)
                         excluded = f"{int(100*numer/denom)}%"
                         counts, xbins, ybins, im = ax.hist2d(dist[feat_mask],
-                                                            #  np.abs(self.x_diff_test[feat_mask, feature]),
                                                              self.x_diff_test[feat_mask, feature],
                                                              bins=(bins["d"], 100),
                                                              cmap=self.cmap, cmin=self.cmin)
-                        # ax.contour(counts.transpose(),
-                        #            extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]],
-                        #            linewidths=3, cmap=self.cmap, levels=[25, 50, 75, 100])
-                        ax.set_xlabel(f"Euclidean distance, PCA dim {dim}")
-                        ax.set_ylabel(f"abs(Left - Right), feature {feature}: {feat_name}")
+
+                        if self.draw_envelope:
+                            x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(dist[feat_mask],
+                                                                                              self.x_diff_test[feat_mask, feature],
+                                                                                              bins["d"])
+                            ax.scatter(x_bin_centers, percentile_lo, marker="_", color='cyan', linewidth=1.2, label="25th-75th percentile")
+                            ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
+
+                        xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
+                        ax.set_xlabel(f"Euclidean distance, {xlabel}")
+                        ax.set_ylabel(f"Left - Right, feature {feature}: {feat_name}")
                         ax.set_title(f"T5-T5 pairs: {title}. Excluding {excluded}")
                         ax.tick_params(right=True, top=True, which="both", direction="in")
                         ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
@@ -636,6 +650,23 @@ def feature_name_pls(feature: int) -> str:
 
     else:
         raise ValueError(f"Unknown PLS feature index: {feature}")
+
+def get_bounds_of_thing(x, y, xbins):
+    percentile_25 = []
+    percentile_75 = []
+    x_bin_centers = []
+
+    for i in range(len(xbins) - 1):
+        x_mask = (x >= xbins[i]) & (x < xbins[i+1])
+        y_in_bin = y[x_mask]
+
+        if len(y_in_bin) >= 100:  # Avoid percentile calc on 0/1 point
+            p25, p75 = np.percentile(y_in_bin, [25, 75])
+            percentile_25.append(p25)
+            percentile_75.append(p75)
+            x_bin_centers.append(0.5 * (xbins[i] + xbins[i+1]))
+
+    return np.array(x_bin_centers), np.array(percentile_25), np.array(percentile_75)
 
 
 
