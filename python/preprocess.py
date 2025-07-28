@@ -23,6 +23,7 @@ os.environ["PYTHONHASHSEED"] = str(42)
 
 DELTA_R2_CUT = 0.02
 ETA_MAX = 2.5
+ETA_MAX_PLS = 4.0
 
 BONUS_FEATURES = 2
 
@@ -160,6 +161,15 @@ def load_t5_pls_pairs(PAIRS_T5PLS):
         data["w_pls_test"],
     ]
 
+def load_pls_pls_pairs(PAIRS_PLSPLS):
+    with open(PAIRS_PLSPLS, "rb") as fi:
+        data = pickle.load(fi)
+    return [
+        data["X_pls_left"],
+        data["X_pls_right"],
+        data["y_pls"],
+    ]
+
 class Preprocessor:
 
     def __init__(self,
@@ -170,6 +180,7 @@ class Preprocessor:
                  FEATURES_PLS,
                  PAIRS_T5T5,
                  PAIRS_T5PLS,
+                 PAIRS_PLSPLS,
                  ):
 
         self.bonus_features = BONUS_FEATURES
@@ -179,6 +190,7 @@ class Preprocessor:
         self.FEATURES_PLS = FEATURES_PLS
         self.PAIRS_T5T5 = PAIRS_T5T5
         self.PAIRS_T5PLS = PAIRS_T5PLS
+        self.PAIRS_PLSPLS = PAIRS_PLSPLS
         self.root_path = root_path
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
 
@@ -224,6 +236,14 @@ class Preprocessor:
                                    features_per_event,
                                    displaced_per_event,
                                    sim_indices_per_event) if not self.LOAD_PAIRS else load_t5_pls_pairs(self.PAIRS_T5PLS)
+
+        print("Getting PLS-PLS pairs")
+        [self.X_pls_left,
+         self.X_pls_right,
+         self.y_pls,
+         ] = self.get_pls_pairs(pLS_features_per_event,
+                                pLS_sim_indices_per_event) if not self.LOAD_PAIRS else load_pls_pls_pairs(self.PAIRS_PLSPLS)
+
 
 
     def load_root_file(self, root_path):
@@ -586,6 +606,39 @@ class Preprocessor:
         return pLS_features_per_event, pLS_sim_indices_per_event
 
 
+    def get_pls_pairs(self, pLS_features_per_event, pLS_sim_indices_per_event):
+
+        # invoke
+        x_pls_left, x_pls_right, y_pls = create_pls_pairs_balanced_parallel(
+            pLS_features_per_event,
+            pLS_sim_indices_per_event,
+            max_similar_pairs_per_event    = MAX_SIM,
+            max_dissimilar_pairs_per_event = MAX_DIS,
+            invalid_sim_idx                = -1,
+            n_workers                      = min(32, os.cpu_count() // 2),
+        )
+
+        # checks
+        if len(y_pls) == 0:
+            raise ValueError("No pairs generated. Check filters/data.")
+        mask = (np.isfinite(x_pls_left).all(axis=1) &
+                np.isfinite(x_pls_right).all(axis=1))
+        if not mask.all():
+            print(f"Filtering {np.sum(~mask)} pairs with NaN/Inf")
+            x_pls_left, x_pls_right, y_pls = x_pls_left[mask], x_pls_right[mask], y_pls[mask]
+
+        # write results to file
+        print(f"Writing to {self.PAIRS_PLSPLS}")
+        with open(self.PAIRS_PLSPLS, "wb") as fi:
+            pickle.dump({
+                "X_pls_left": x_pls_left,
+                "X_pls_right": x_pls_right,
+                "y_pls": y_pls,
+            }, fi)
+
+        return [x_pls_left, x_pls_right, y_pls]
+
+
     def get_t5_pairs(self, features_per_event, displaced_per_event, sim_indices_per_event):
 
         # invoke
@@ -905,6 +958,61 @@ def create_t5_pairs_balanced_parallel(features_per_event,
     return X_left, X_right, y, disp_L, disp_R, true_L, true_R
 
 
+def create_pls_pairs_balanced_parallel(features_per_event,
+                                       sim_indices_per_event,
+                                       max_similar_pairs_per_event=100,
+                                       max_dissimilar_pairs_per_event=450,
+                                       invalid_sim_idx=-1,
+                                       n_workers=None):
+    t0 = time.time()
+    print("\n>>> Pair generation  (ΔR² < 0.02)  –  parallel mode")
+
+    work_args = [
+        (evt_idx,
+         features_per_event[evt_idx],
+         sim_indices_per_event[evt_idx],
+         max_similar_pairs_per_event,
+         max_dissimilar_pairs_per_event,
+         invalid_sim_idx)
+         for evt_idx in range(len(features_per_event))
+         # for evt_idx in range(5)
+    ]
+
+    sim_L, sim_R = [], []
+    dis_L, dis_R = [], []
+
+    with ProcessPoolExecutor(max_workers=n_workers) as pool:
+        futures = [pool.submit(_pairs_pls_single_event_vectorized, *args) for args in work_args]
+        for fut in futures:
+            evt_idx, sim_pairs_evt, dis_pairs_evt = fut.result()
+            F = features_per_event[evt_idx]
+            S = sim_indices_per_event[evt_idx]
+            for it, (i, j) in enumerate(sim_pairs_evt):
+                sim_L.append(F[i])
+                sim_R.append(F[j])
+                # if it > 995:
+                #     print(f"sim pair {it}: ({i}, {j})")
+                #     print("", " ".join([f"{x:7.4f}" for x in F[i]]), S[i])
+                #     print("", " ".join([f"{x:7.4f}" for x in F[j]]), S[j])
+            for it, (i, j) in enumerate(dis_pairs_evt):
+                dis_L.append(F[i])
+                dis_R.append(F[j])
+                # if it > 995:
+                #     print(f"dis pair {it}: ({i}, {j})")
+                #     print("", " ".join([f"{x:7.4f}" for x in F[i]]), S[i])
+                #     print("", " ".join([f"{x:7.4f}" for x in F[j]]), S[j])
+
+    X_left  = np.concatenate([np.asarray(sim_L, dtype=np.float32),
+                              np.asarray(dis_L, dtype=np.float32)], axis=0)
+    X_right = np.concatenate([np.asarray(sim_R, dtype=np.float32),
+                              np.asarray(dis_R, dtype=np.float32)], axis=0)
+    y       = np.concatenate([np.zeros(len(sim_L), dtype=np.int32),
+                              np.ones (len(dis_L), dtype=np.int32)])
+
+    print(f"<<< done in {time.time() - t0:.1f}s  | sim {len(sim_L)}  dis {len(dis_L)}  total {len(y)}")
+    return X_left, X_right, y
+
+
 def _pairs_pLS_T5_single_vectorized(evt_idx,
                                     F_pLS, S_pLS,
                                     F_T5,  S_T5, D_T5,
@@ -1041,3 +1149,45 @@ def _pairs_pLS_T5_single(evt_idx,
         packed.append((F_pLS[i], F_T5[j], 1, D_T5[j] > DISP_VXY_CUT))
 
     return evt_idx, packed
+
+def _pairs_pls_single_event_vectorized(evt_idx,
+                                       F, S,
+                                       max_sim, max_dis,
+                                       invalid_sim):
+    t0 = time.time()
+    n = F.shape[0]
+    eta1, phi1 = F[:, 0] * ETA_MAX_PLS, np.arctan2(F[:, 3], F[:, 2])
+
+    # upper-triangle (non-diagonal) indices
+    idx_l, idx_r = np.triu_indices(n, k=1)
+    idxs_triu = np.stack((idx_l, idx_r), axis=-1)
+
+    simidx_l = S[idx_l]
+    simidx_r = S[idx_r]
+
+    eta_l = eta1[idx_l]
+    eta_r = eta1[idx_r]
+    phi_l = phi1[idx_l]
+    phi_r = phi1[idx_r]
+    dphi = np.abs(phi_l - phi_r)
+    dphi[dphi > np.pi] -= 2 * np.pi  # adjust to [-pi, pi]
+    dr2 = (eta_l - eta_r)**2 + dphi**2
+
+    basic_mask = (dr2 < DELTA_R2_CUT) & (simidx_l != invalid_sim) & (simidx_r != invalid_sim)
+    sim_idx_same = (simidx_l == simidx_r)
+    sim_mask = basic_mask & sim_idx_same
+    dis_mask = basic_mask & ~sim_idx_same
+
+    sim_pairs = idxs_triu[sim_mask]
+    dis_pairs = idxs_triu[dis_mask]
+
+    # down-sample
+    random.seed(evt_idx)
+    if len(sim_pairs) > max_sim:
+        sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
+    if len(dis_pairs) > max_dis:
+        dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
+
+    dt = time.time() - t0
+    print(f"[evt {evt_idx:4d}]  PLSs={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds vectorized")
+    return evt_idx, sim_pairs, dis_pairs

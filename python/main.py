@@ -41,6 +41,8 @@ def options():
                         help="Path to the precomputed T5-T5 pairs file")
     parser.add_argument("--pairs_t5pls", type=str, default="pairs_t5pls.pkl",
                         help="Path to the precomputed T5-PLS pairs file")
+    parser.add_argument("--pairs_plspls", type=str, default="pairs_plspls.pkl",
+                        help="Path to the precomputed PLS-PLS pairs file")
     return parser.parse_args()
 
 
@@ -60,6 +62,7 @@ def main():
                              args.features_pls,
                              args.pairs_t5t5,
                              args.pairs_t5pls,
+                             args.pairs_plspls,
                              )
 
     # Tests?
