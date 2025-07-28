@@ -333,58 +333,77 @@ class PCAPlotter:
             bins = {}
             bins["d"] = np.logspace(-3, 1, 101)
 
-            for status in [dup, nodup]:
+            for comparison in ["t5t5",
+                               ]:
 
-                print(f"Plotting T5-T5 pairs for status {status}")
-                mask = self.y_t5_test == status
-                title = "duplicate" if status == dup else "non-duplicate"
+                if comparison == "t5t5":
+                    this_y = self.y_t5_test
+                    this_dist = self.proj_x_l - self.proj_x_r
+                    this_diff = self.x_diff_test
+                elif comparison == "plspls":
+                    raise NotImplementedError("PLS-PLS comparison not implemented yet")
+                    # this_y = self.y_pls_test
 
-                for dim in dims:
+                for status in [dup, nodup]:
 
-                    if self.quickplot and dim > 1:
-                        break
+                    print(f"Plotting T5-T5 pairs for status {status}")
+                    mask = (this_y == status)
+                    title = "duplicate" if status == dup else "non-duplicate"
 
-                    print(f"Plotting PCA dim {dim} for T5-T5 pairs")
+                    for dim in dims:
 
-                    # the distance to plot
-                    if dim == -1:
-                        dist = self.d_t5t5
-                    else:
-                        dist = self.proj_x_l[:, dim] - self.proj_x_r[:, dim]
-
-                    for feature in range(self.x_diff_test.shape[1]):
-                    # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-                    # for feature in [0]:
-                        if self.quickplot and feature > 2:
+                        if self.quickplot and dim > 1:
                             break
+
+                        # Draw page divider
                         fig, ax = plt.subplots(figsize=(8, 8))
-                        feat_mask = mask & (self.x_diff_test[:, feature] != 0)
-                        feat_name = feature_name("T5", feature)
-                        numer, denom = np.sum(mask & (self.x_diff_test[:, feature] == 0)), np.sum(mask)
-                        excluded = f"{int(100*numer/denom)}%"
-                        counts, xbins, ybins, im = ax.hist2d(dist[feat_mask],
-                                                             self.x_diff_test[feat_mask, feature],
-                                                             bins=(bins["d"], 100),
-                                                             cmap=self.cmap, cmin=self.cmin)
-
-                        if self.draw_envelope:
-                            x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(dist[feat_mask],
-                                                                                              self.x_diff_test[feat_mask, feature],
-                                                                                              bins["d"])
-                            ax.scatter(x_bin_centers, percentile_lo, marker="_", color='cyan', linewidth=1.2, label="25th-75th percentile")
-                            ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
-
-                        xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
-                        ax.set_xlabel(f"Euclidean distance, {xlabel}")
-                        ax.set_ylabel(f"Left - Right, feature {feature}: {feat_name}")
-                        ax.set_title(f"T5-T5 pairs: {title}. Excluding {excluded}")
-                        ax.tick_params(right=True, top=True, which="both", direction="in")
-                        ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
-                        ax.semilogx()
-                        fig.colorbar(im, ax=ax, pad=self.pad)
-                        fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+                        ax.text(0.5, 0.5, f"{title}, PCA dim: {dim}",
+                                fontsize=20, ha='center', va='center')
+                        ax.axis('off')
                         pdf.savefig()
                         plt.close()
+
+                        print(f"Plotting PCA dim {dim} for T5-T5 pairs")
+
+                        # the distance to plot
+                        dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else this_dist[:, dim]
+
+                        for feature in range(this_diff.shape[1]):
+                        # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+                        # for feature in [0]:
+                            if self.quickplot and feature > 2:
+                                break
+                            fig, ax = plt.subplots(figsize=(8, 8))
+                            feat_mask = mask & (this_diff[:, feature] != 0)
+                            feat_name = feature_name("T5", feature)
+                            numer, denom = np.sum(mask & (this_diff[:, feature] == 0)), np.sum(mask)
+                            excluded = f"{int(100*numer/denom)}%"
+                            counts, xbins, ybins, im = ax.hist2d(dist[feat_mask],
+                                                                np.abs(this_diff[feat_mask, feature]),
+                                                                bins=(bins["d"], 100),
+                                                                cmap=self.cmap, cmin=self.cmin)
+
+                            if self.draw_envelope:
+                                x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(dist[feat_mask],
+                                                                                                np.abs(this_diff[feat_mask, feature]),
+                                                                                                bins["d"],
+                                                                                                lo=50,
+                                                                                                hi=99,
+                                                                                                )
+                                ax.scatter(x_bin_centers, percentile_lo, marker="_", color='lightgray', linewidth=1.2, label="25th-75th percentile")
+                                # ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
+
+                            xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
+                            ax.set_xlabel(f"Euclidean distance, {xlabel}")
+                            ax.set_ylabel(f"Left - Right, feature {feature}: {feat_name}")
+                            ax.set_title(f"T5-T5 pairs: {title}. Excluding {excluded}")
+                            ax.tick_params(right=True, top=True, which="both", direction="in")
+                            ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
+                            ax.semilogx()
+                            fig.colorbar(im, ax=ax, pad=self.pad)
+                            fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+                            pdf.savefig()
+                            plt.close()
 
             return
 
@@ -651,9 +670,9 @@ def feature_name_pls(feature: int) -> str:
     else:
         raise ValueError(f"Unknown PLS feature index: {feature}")
 
-def get_bounds_of_thing(x, y, xbins):
-    percentile_25 = []
-    percentile_75 = []
+def get_bounds_of_thing(x, y, xbins, lo=25, hi=75):
+    percentile_lo = []
+    percentile_hi = []
     x_bin_centers = []
 
     for i in range(len(xbins) - 1):
@@ -661,12 +680,12 @@ def get_bounds_of_thing(x, y, xbins):
         y_in_bin = y[x_mask]
 
         if len(y_in_bin) >= 100:  # Avoid percentile calc on 0/1 point
-            p25, p75 = np.percentile(y_in_bin, [25, 75])
-            percentile_25.append(p25)
-            percentile_75.append(p75)
+            plo, phi = np.percentile(y_in_bin, [lo, hi])
+            percentile_lo.append(plo)
+            percentile_hi.append(phi)
             x_bin_centers.append(0.5 * (xbins[i] + xbins[i+1]))
 
-    return np.array(x_bin_centers), np.array(percentile_25), np.array(percentile_75)
+    return np.array(x_bin_centers), np.array(percentile_lo), np.array(percentile_hi)
 
 
 
