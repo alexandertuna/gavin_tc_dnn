@@ -12,7 +12,7 @@ from matplotlib import rcParams
 rcParams["font.size"] = 16
 
 from preprocess import load_t5_features, load_pls_features
-from preprocess import load_t5_t5_pairs, load_t5_pls_pairs
+from preprocess import load_t5_t5_pairs, load_t5_pls_pairs, load_pls_pls_pairs
 from ml import EmbeddingNetT5, EmbeddingNetpLS
 
 BONUS_FEATURES = 2
@@ -34,6 +34,8 @@ def options():
                         help="Path to the precomputed T5-T5 pairs file")
     parser.add_argument("--pairs_t5pls", type=str, default="pairs_t5pls.pkl",
                         help="Path to the precomputed T5-PLS pairs file")
+    parser.add_argument("--pairs_plspls", type=str, default="pairs_plspls.pkl",
+                        help="Path to the precomputed PLS-PLS pairs file")
     parser.add_argument("--pca_dataset", type=str, default="test",
                         help="Choice of dataset for PCA: 'train' or 'test'")
     parser.add_argument("--n_pca", type=int, default=6,
@@ -58,6 +60,7 @@ def main():
                          features_pls=args.features_pls,
                          pairs_t5t5=args.pairs_t5t5,
                          pairs_t5pls=args.pairs_t5pls,
+                         pairs_plspls=args.pairs_plspls,
                          model_weights=args.model,
                          other_model=args.other_model,
                          n_pca=args.n_pca,
@@ -86,6 +89,7 @@ class PCAPlotter:
                  features_pls,
                  pairs_t5t5,
                  pairs_t5pls,
+                 pairs_plspls,
                  model_weights,
                  other_model,
                  n_pca,
@@ -102,6 +106,7 @@ class PCAPlotter:
         self.features_pls = features_pls
         self.pairs_t5t5 = pairs_t5t5
         self.pairs_t5pls = pairs_t5pls
+        self.pairs_plspls = pairs_plspls
         self.model_weights = model_weights
         self.other_model = other_model
         self.n_pca = n_pca
@@ -140,6 +145,11 @@ class PCAPlotter:
          w_pls_train,
          w_pls_test) = load_t5_pls_pairs(self.pairs_t5pls)
 
+        print(f"Loading PLS-PLS pairs from {self.pairs_plspls}")
+        (X_pls_left,
+         X_pls_right,
+         y_pls) = load_pls_pls_pairs(self.pairs_plspls)
+
         print(f"Choosing dataset for PCA: {self.pca_dataset}")
         if self.pca_dataset == "train":
             self.x_t5 = X_left_train
@@ -147,6 +157,10 @@ class PCAPlotter:
         elif self.pca_dataset == "test":
             self.x_t5 = X_left_test
             self.x_pls = X_pls_test
+
+            self.x_pls_left = X_pls_left
+            self.x_pls_right = X_pls_right
+            self.y_pls = y_pls
         else:
             raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
 
