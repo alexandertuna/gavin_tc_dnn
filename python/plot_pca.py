@@ -78,6 +78,7 @@ def main():
     plotter.do_pca()
     plotter.check_math()
     plotter.do_tsne()
+    plotter.plot1d()
     plotter.plot()
 
 
@@ -152,26 +153,28 @@ class PCAPlotter:
 
         print(f"Choosing dataset for PCA: {self.pca_dataset}")
         if self.pca_dataset == "train":
-            self.x_t5 = X_left_train
-            self.x_pls = X_pls_train
+            self.x_t5 = X_left_train[:, :-BONUS_FEATURES]
+            self.x_pls = X_pls_train[:, :-BONUS_FEATURES]
         elif self.pca_dataset == "test":
-            self.x_t5 = X_left_test
-            self.x_pls = X_pls_test
-
-            self.x_pls_left = X_pls_left
-            self.x_pls_right = X_pls_right
-            self.y_pls = y_pls
+            self.x_t5 = X_left_test[:, :-BONUS_FEATURES]
+            self.x_pls = X_pls_test[:, :-BONUS_FEATURES]
         else:
             raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
 
-        # Save pairwise data, too
-        self.x_left_test = X_left_test
-        self.x_right_test = X_right_test
+        # T5-T5 and T5-PLS pairwise data
+        self.x_left_test = X_left_test[:, :-BONUS_FEATURES]
+        self.x_right_test = X_right_test[:, :-BONUS_FEATURES]
         self.y_t5_test = y_t5_test
-        self.x_pls_test = X_pls_test
-        self.x_t5_test = X_t5raw_test
+        self.x_pls_test = X_pls_test[:, :-BONUS_FEATURES]
+        self.x_t5_test = X_t5raw_test[:, :-BONUS_FEATURES]
         self.y_pls_test = y_pls_test
-        self.x_diff_test = (self.x_left_test - self.x_right_test)[:, :-BONUS_FEATURES]
+        self.x_diff_test = (self.x_left_test - self.x_right_test)
+
+        # PLS-PLS pairwise data
+        self.x_pls_left = X_pls_left[:, :-BONUS_FEATURES]
+        self.x_pls_right = X_pls_right[:, :-BONUS_FEATURES]
+        self.y_pls = y_pls
+        self.x_pls_diff = (self.x_pls_left - self.x_pls_right)
 
 
     def load_embedding_networks(self):
@@ -205,7 +208,8 @@ class PCAPlotter:
     def embed_data(self):
 
         def embed(x, net):
-            x_tensor = torch.tensor(x[:, :-BONUS_FEATURES], requires_grad=False)
+            # x_tensor = torch.tensor(x[:, :-BONUS_FEATURES], requires_grad=False)
+            x_tensor = torch.tensor(x, requires_grad=False)
             return net(x_tensor).detach().numpy()
 
         print("Embedding T5s and PLSs")
@@ -232,6 +236,10 @@ class PCAPlotter:
         self.d_t5t5 = np.linalg.norm(self.emb_x_l - self.emb_x_r, axis=1)
         self.d_t5pls = np.linalg.norm(self.emb_x_t5 - self.emb_x_pls, axis=1)
 
+        # Save PLS-PLS pairwise data
+        self.emb_x_pls_l = embed(self.x_pls_left, self.embed_pls)
+        self.emb_x_pls_r = embed(self.x_pls_right, self.embed_pls)
+
 
     def engineer_features(self):
 
@@ -249,7 +257,7 @@ class PCAPlotter:
             eng_pls_phi = np.arctan2(self.x_pls[:, 3], self.x_pls[:, 2])
             eng_pls_rinv = (10 ** self.x_pls[:, 9]) ** -1.0
             eng_pls_pt = self.x_pls[:, 4] ** -1
-            eng_pls_center_r = np.sqrt((10 ** self.x_pls[:, 7]) ** 2 + (10 ** self.x_pls[:, 8]) ** 2)
+            eng_pls_center_r = np.log10(np.sqrt((10 ** self.x_pls[:, 7]) ** 2 + (10 ** self.x_pls[:, 8]) ** 2))
 
             # Combine
             self.x_t5 = np.concatenate((self.x_t5,
@@ -265,6 +273,79 @@ class PCAPlotter:
                                          eng_pls_pt.reshape(-1, 1),
                                          eng_pls_center_r.reshape(-1, 1),
                                          ), axis=1)
+
+            # T5T5
+            # self.x_left_test = X_left_test
+            # self.x_right_test = X_right_test
+            # self.y_t5_test = y_t5_test
+            # self.x_pls_test = X_pls_test
+            # self.x_t5_test = X_t5raw_test
+
+            # eng_t5_eta = self.x_t5[:, 0] * 2.5
+            # eng_t5_phi = np.arctan2(self.x_t5[:, 2], self.x_t5[:, 1])
+            # eng_t5_pt = (self.x_t5[:, 21] ** -1) * k2Rinv1GeVf * 2
+            # eng_t5_max_disp = np.maximum(self.x_t5[:, 26], self.x_t5[:, 26] + self.x_t5[:, 29])
+
+            # T5T5 (left)
+            eta = self.x_left_test[:, 0] * 2.5
+            phi = np.arctan2(self.x_left_test[:, 2], self.x_left_test[:, 1])
+            pt = (self.x_left_test[:, 21] ** -1) * k2Rinv1GeVf * 2
+            max_disp = np.maximum(self.x_left_test[:, 26], self.x_left_test[:, 26] + self.x_left_test[:, 29])
+            self.x_left_test = np.concatenate((self.x_left_test,
+                                               eta.reshape(-1, 1),
+                                               phi.reshape(-1, 1),
+                                               pt.reshape(-1, 1),
+                                               max_disp.reshape(-1, 1),
+                                               ), axis=1)
+
+            # T5T5 (right)
+            eta = self.x_right_test[:, 0] * 2.5
+            phi = np.arctan2(self.x_right_test[:, 2], self.x_right_test[:, 1])
+            pt = (self.x_right_test[:, 21] ** -1) * k2Rinv1GeVf * 2
+            max_disp = np.maximum(self.x_right_test[:, 26], self.x_right_test[:, 26] + self.x_right_test[:, 29])
+            self.x_right_test = np.concatenate((self.x_right_test,
+                                                eta.reshape(-1, 1),
+                                                phi.reshape(-1, 1),
+                                                pt.reshape(-1, 1),
+                                                max_disp.reshape(-1, 1),
+                                                ), axis=1)
+
+
+            # PLSPLS (left)
+            eta = self.x_pls_left[:, 0] * 4.0
+            phi = np.arctan2(self.x_pls_left[:, 3], self.x_pls_left[:, 2])
+            rinv = (10 ** self.x_pls_left[:, 9]) ** -1.0
+            pt = self.x_pls_left[:, 4] ** -1
+            center_r = np.log10(np.sqrt((10 ** self.x_pls_left[:, 7]) ** 2 + (10 ** self.x_pls_left[:, 8]) ** 2))
+            self.x_pls_left = np.concatenate((self.x_pls_left,
+                                              eta.reshape(-1, 1),
+                                              phi.reshape(-1, 1),
+                                              rinv.reshape(-1, 1),
+                                              pt.reshape(-1, 1),
+                                              center_r.reshape(-1, 1),
+                                              ), axis=1)
+
+            # PLSPLS (right)
+            eta = self.x_pls_right[:, 0] * 4.0
+            phi = np.arctan2(self.x_pls_right[:, 3], self.x_pls_right[:, 2])
+            rinv = (10 ** self.x_pls_right[:, 9]) ** -1.0
+            pt = self.x_pls_right[:, 4] ** -1
+            center_r = np.log10(np.sqrt((10 ** self.x_pls_right[:, 7]) ** 2 + (10 ** self.x_pls_right[:, 8]) ** 2))
+            self.x_pls_right = np.concatenate((self.x_pls_right,
+                                               eta.reshape(-1, 1),
+                                               phi.reshape(-1, 1),
+                                               rinv.reshape(-1, 1),
+                                               pt.reshape(-1, 1),
+                                               center_r.reshape(-1, 1),
+                                              ), axis=1)
+
+            # Re-measure diffs
+            self.x_diff_test = (self.x_left_test - self.x_right_test)
+            self.x_pls_diff = (self.x_pls_left - self.x_pls_right)
+
+            # Adjust dphi
+            self.x_diff_test[:, 31] = delta_angle(self.x_diff_test[:, 31])
+            self.x_pls_diff[:, 11] = delta_angle(self.x_pls_diff[:, 11])
 
 
     def do_pca(self):
@@ -291,6 +372,8 @@ class PCAPlotter:
         # More PCA
         self.proj_x_l = self.pca.transform(self.emb_x_l)
         self.proj_x_r = self.pca.transform(self.emb_x_r)
+        self.proj_x_pls_l = self.pca.transform(self.emb_x_pls_l)
+        self.proj_x_pls_r = self.pca.transform(self.emb_x_pls_r)
 
 
     def check_math(self):
@@ -331,6 +414,9 @@ class PCAPlotter:
             tsne_pls = tsne.fit_transform(self.embedded_pls)
 
 
+    def plot1d(self):
+        pass
+
     def plot(self):
 
         # plot options
@@ -348,6 +434,7 @@ class PCAPlotter:
             bins["d"] = np.logspace(-3, 1, 101)
 
             for comparison in ["t5t5",
+                               "plspls",
                                ]:
 
                 if comparison == "t5t5":
@@ -355,12 +442,13 @@ class PCAPlotter:
                     this_dist = self.proj_x_l - self.proj_x_r
                     this_diff = self.x_diff_test
                 elif comparison == "plspls":
-                    raise NotImplementedError("PLS-PLS comparison not implemented yet")
-                    # this_y = self.y_pls_test
+                    this_y = self.y_pls
+                    this_dist = self.proj_x_pls_l - self.proj_x_pls_r
+                    this_diff = self.x_pls_diff
 
                 for status in [dup, nodup]:
 
-                    print(f"Plotting T5-T5 pairs for status {status}")
+                    print(f"Plotting {comparison} pairs for status {status}")
                     mask = (this_y == status)
                     title = "duplicate" if status == dup else "non-duplicate"
 
@@ -389,28 +477,28 @@ class PCAPlotter:
                                 break
                             fig, ax = plt.subplots(figsize=(8, 8))
                             feat_mask = mask & (this_diff[:, feature] != 0)
-                            feat_name = feature_name("T5", feature)
+                            feat_name = feature_name(comparison, feature)
                             numer, denom = np.sum(mask & (this_diff[:, feature] == 0)), np.sum(mask)
                             excluded = f"{int(100*numer/denom)}%"
-                            counts, xbins, ybins, im = ax.hist2d(dist[feat_mask],
-                                                                np.abs(this_diff[feat_mask, feature]),
-                                                                bins=(bins["d"], 100),
-                                                                cmap=self.cmap, cmin=self.cmin)
+                            x, y = dist[feat_mask], np.abs(this_diff[feat_mask, feature])
+                            counts, xbins, ybins, im = ax.hist2d(x, y,
+                                                                 bins=(bins["d"], 100),
+                                                                 cmap=self.cmap, cmin=self.cmin)
+                            corr = np.corrcoef(x, y)[0, 1]
 
                             if self.draw_envelope:
-                                x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(dist[feat_mask],
-                                                                                                np.abs(this_diff[feat_mask, feature]),
-                                                                                                bins["d"],
-                                                                                                lo=50,
-                                                                                                hi=99,
-                                                                                                )
+                                x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
+                                                                                                 bins["d"],
+                                                                                                 lo=50,
+                                                                                                 hi=99,
+                                                                                                 )
                                 ax.scatter(x_bin_centers, percentile_lo, marker="_", color='lightgray', linewidth=1.2, label="25th-75th percentile")
                                 # ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
 
                             xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
                             ax.set_xlabel(f"Euclidean distance, {xlabel}")
-                            ax.set_ylabel(f"Left - Right, feature {feature}: {feat_name}")
-                            ax.set_title(f"T5-T5 pairs: {title}. Excluding {excluded}")
+                            ax.set_ylabel(f"abs(Left - Right), feature {feature}: {feat_name}")
+                            ax.set_title(f"{comparison} pairs: {title}. Excluding {excluded}. Corr. = {corr:.2f}", fontsize=16)
                             ax.tick_params(right=True, top=True, which="both", direction="in")
                             ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
                             ax.semilogx()
@@ -557,9 +645,9 @@ def feature_binning(dim: int, feat_name: str):
     return bins
 
 def feature_name(name: str, feature: int) -> str:
-    if name == "T5":
+    if name == "T5" or name == "t5" or name == "t5t5":
         return feature_name_t5(feature)
-    elif name == "PLS":
+    elif name == "PLS" or name == "pls" or name == "plspls":
         return feature_name_pls(feature)
     else:
         raise ValueError(f"Unknown feature type: {name}")
@@ -679,7 +767,7 @@ def feature_name_pls(feature: int) -> str:
     elif feature == 13:
         return "pT"
     elif feature == 14:
-        return "circleCenterR"
+        return "log10(circleCenterR)"
 
     else:
         raise ValueError(f"Unknown PLS feature index: {feature}")
@@ -701,6 +789,11 @@ def get_bounds_of_thing(x, y, xbins, lo=25, hi=75):
 
     return np.array(x_bin_centers), np.array(percentile_lo), np.array(percentile_hi)
 
+def delta_angle(delta):
+    # Adjust delta to be within the range [-pi, pi]
+    delta[delta > np.pi] -= 2 * np.pi
+    delta[delta < -np.pi] += 2 * np.pi
+    return delta
 
 
 if __name__ == "__main__":
