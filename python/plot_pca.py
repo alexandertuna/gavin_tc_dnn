@@ -65,7 +65,7 @@ def main():
                          other_model=args.other_model,
                          n_pca=args.n_pca,
                          pca_dataset=args.pca_dataset,
-                         engineer=args.engineer,
+                         engineer=True,
                          checkmath=args.checkmath,
                          tsne=args.tsne,
                          quickplot=args.quickplot,
@@ -78,8 +78,9 @@ def main():
     plotter.do_pca()
     plotter.check_math()
     plotter.do_tsne()
-    plotter.plot1d()
-    plotter.plot()
+    with PdfPages(plotter.pdf_name) as pdf:
+        plotter.plot1d(pdf)
+        # plotter.plot2d(pdf)
 
 
 class PCAPlotter:
@@ -310,6 +311,31 @@ class PCAPlotter:
                                                 max_disp.reshape(-1, 1),
                                                 ), axis=1)
 
+            # T5PLS
+            eta = self.x_t5_test[:, 0] * 2.5
+            phi = np.arctan2(self.x_t5_test[:, 2], self.x_t5_test[:, 1])
+            pt = (self.x_t5_test[:, 21] ** -1) * k2Rinv1GeVf * 2
+            max_disp = np.maximum(self.x_t5_test[:, 26], self.x_t5_test[:, 26] + self.x_t5_test[:, 29])
+            self.x_t5_test = np.concatenate((self.x_t5_test,
+                                        eta.reshape(-1, 1),
+                                        phi.reshape(-1, 1),
+                                        pt.reshape(-1, 1),
+                                        max_disp.reshape(-1, 1),
+                                        ), axis=1)
+
+            eta = self.x_pls_test[:, 0] * 4.0
+            phi = np.arctan2(self.x_pls_test[:, 3], self.x_pls_test[:, 2])
+            rinv = (10 ** self.x_pls_test[:, 9]) ** -1.0
+            pt = self.x_pls_test[:, 4] ** -1
+            center_r = np.log10(np.sqrt((10 ** self.x_pls_test[:, 7]) ** 2 + (10 ** self.x_pls_test[:, 8]) ** 2))
+            self.x_pls_test = np.concatenate((self.x_pls_test,
+                                         eta.reshape(-1, 1),
+                                         phi.reshape(-1, 1),
+                                         rinv.reshape(-1, 1),
+                                         pt.reshape(-1, 1),
+                                         center_r.reshape(-1, 1),
+                                         ), axis=1)
+
 
             # PLSPLS (left)
             eta = self.x_pls_left[:, 0] * 4.0
@@ -414,10 +440,74 @@ class PCAPlotter:
             tsne_pls = tsne.fit_transform(self.embedded_pls)
 
 
-    def plot1d(self):
+    def plot1d(self, pdf: PdfPages):
+
+        print("Plotting 1D distributions")
+        # self.x_left_test
+        # self.x_right_test
+        # self.x_pls_test
+        # self.x_t5_test
+        # self.x_pls_left
+        # self.x_pls_right
+
+        # self.y_t5_test = y_t5_test
+        # self.y_pls_test = y_pls_test
+        # self.y_pls = y_pls
+
+        features = {
+            "T5": [30, 31, 32],
+            "PLS": [10, 11, 13],
+        }
+
+        bins = {
+            "eta": np.linspace(-2.6, 2.6, 100),
+            "phi": np.linspace(-3.2, 3.2, 100),
+            "pt": np.linspace(0, 25, 100),
+        }
+
+        for (obj_left, obj_right, left, right, y) in [
+            ("T5", "T5", self.x_left_test, self.x_right_test, self.y_t5_test),
+            ("T5", "PLS", self.x_t5_test, self.x_pls_test, self.y_pls_test),
+            ("PLS", "PLS", self.x_pls_left, self.x_pls_right, self.y_pls),
+        ]:
+
+            for y_value in [0, 1]:
+                mask = (y == y_value)
+
+                fig, ax = plt.subplots(figsize=(20, 8), ncols=3)
+                ax[0].hist(left[mask, features[obj_left][0]], bins=bins["eta"], label=f"{obj_left} eta")
+                ax[1].hist(left[mask, features[obj_left][1]], bins=bins["phi"], label=f"{obj_left} phi")
+                ax[2].hist(left[mask, features[obj_left][2]], bins=bins["pt"], label=f"{obj_left} pt")
+                ax[0].set_xlabel(f"{obj_left} left eta")
+                ax[1].set_xlabel(f"{obj_left} left phi")
+                ax[2].set_xlabel(f"{obj_left} left pt")
+                ax[0].set_title(f"{obj_left} vs {obj_right}, y = {y_value}")
+                ax[1].set_title(f"{obj_left} vs {obj_right}, y = {y_value}")
+                ax[2].set_title(f"{obj_left} vs {obj_right}, y = {y_value}")
+                ax[2].semilogy()
+                pdf.savefig()
+                plt.close()
+
+                fig, ax = plt.subplots(figsize=(20, 8), ncols=3)
+                ax[0].hist(right[mask, features[obj_right][0]], bins=bins["eta"], label=f"{obj_right} eta")
+                ax[1].hist(right[mask, features[obj_right][1]], bins=bins["phi"], label=f"{obj_right} phi")
+                ax[2].hist(right[mask, features[obj_right][2]], bins=bins["pt"], label=f"{obj_right} pt")
+                ax[0].set_xlabel(f"{obj_right} right eta")
+                ax[1].set_xlabel(f"{obj_right} right phi")
+                ax[2].set_xlabel(f"{obj_right} right pt")
+                ax[0].set_title(f"{obj_left} vs {obj_right}, y = {y_value}")
+                ax[1].set_title(f"{obj_left} vs {obj_right}, y = {y_value}")
+                ax[2].set_title(f"{obj_left} vs {obj_right}, y = {y_value}")
+                ax[2].semilogy()
+                pdf.savefig()
+                plt.close()
+
+
+
+
         pass
 
-    def plot(self):
+    def plot2d(self, pdf: PdfPages):
 
         # plot options
         self.cmap = "hot"
@@ -426,173 +516,139 @@ class PCAPlotter:
         bins = 100
 
         print("Plotting!")
-        with PdfPages(self.pdf_name) as pdf:
+        # with PdfPages(self.pdf_name) as pdf:
 
-            dup, nodup = 0, 1
-            dims = range(-1, 6) # self.n_pca
-            bins = {}
-            bins["d"] = np.logspace(-3, 1, 101)
+        dup, nodup = 0, 1
+        dims = range(-1, 6) # self.n_pca
+        bins = {}
+        bins["d"] = np.logspace(-3, 1, 101)
 
-            for comparison in ["t5t5",
-                               "plspls",
-                               ]:
+        for comparison in ["t5t5",
+                            "plspls",
+                            ]:
 
-                if comparison == "t5t5":
-                    this_y = self.y_t5_test
-                    this_dist = self.proj_x_l - self.proj_x_r
-                    this_diff = self.x_diff_test
-                elif comparison == "plspls":
-                    this_y = self.y_pls
-                    this_dist = self.proj_x_pls_l - self.proj_x_pls_r
-                    this_diff = self.x_pls_diff
+            if comparison == "t5t5":
+                this_y = self.y_t5_test
+                this_dist = self.proj_x_l - self.proj_x_r
+                this_diff = self.x_diff_test
+            elif comparison == "plspls":
+                this_y = self.y_pls
+                this_dist = self.proj_x_pls_l - self.proj_x_pls_r
+                this_diff = self.x_pls_diff
 
-                for status in [dup, nodup]:
+            for status in [dup, nodup]:
 
-                    print(f"Plotting {comparison} pairs for status {status}")
-                    mask = (this_y == status)
-                    title = "duplicate" if status == dup else "non-duplicate"
+                print(f"Plotting {comparison} pairs for status {status}")
+                mask = (this_y == status)
+                title = "duplicate" if status == dup else "non-duplicate"
 
-                    for dim in dims:
+                for dim in dims:
 
-                        if self.quickplot and dim > 1:
-                            break
-
-                        # Draw page divider
-                        fig, ax = plt.subplots(figsize=(8, 8))
-                        ax.text(0.5, 0.5, f"{title}, PCA dim: {dim}",
-                                fontsize=20, ha='center', va='center')
-                        ax.axis('off')
-                        pdf.savefig()
-                        plt.close()
-
-                        print(f"Plotting PCA dim {dim} for T5-T5 pairs")
-
-                        # the distance to plot
-                        dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else this_dist[:, dim]
-
-                        for feature in range(this_diff.shape[1]):
-                        # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-                        # for feature in [0]:
-                            if self.quickplot and feature > 2:
-                                break
-                            fig, ax = plt.subplots(figsize=(8, 8))
-                            feat_mask = mask & (this_diff[:, feature] != 0)
-                            feat_name = feature_name(comparison, feature)
-                            numer, denom = np.sum(mask & (this_diff[:, feature] == 0)), np.sum(mask)
-                            excluded = f"{int(100*numer/denom)}%"
-                            x, y = dist[feat_mask], np.abs(this_diff[feat_mask, feature])
-                            counts, xbins, ybins, im = ax.hist2d(x, y,
-                                                                 bins=(bins["d"], 100),
-                                                                 cmap=self.cmap, cmin=self.cmin)
-                            corr = np.corrcoef(x, y)[0, 1]
-
-                            if self.draw_envelope:
-                                x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
-                                                                                                 bins["d"],
-                                                                                                 lo=50,
-                                                                                                 hi=99,
-                                                                                                 )
-                                ax.scatter(x_bin_centers, percentile_lo, marker="_", color='lightgray', linewidth=1.2, label="25th-75th percentile")
-                                # ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
-
-                            xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
-                            ax.set_xlabel(f"Euclidean distance, {xlabel}")
-                            ax.set_ylabel(f"abs(Left - Right), feature {feature}: {feat_name}")
-                            ax.set_title(f"{comparison} pairs: {title}. Excluding {excluded}. Corr. = {corr:.2f}", fontsize=16)
-                            ax.tick_params(right=True, top=True, which="both", direction="in")
-                            ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
-                            ax.semilogx()
-                            fig.colorbar(im, ax=ax, pad=self.pad)
-                            fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
-                            pdf.savefig()
-                            plt.close()
-
-            return
-
-            # PCA components
-            print("Plotting PCA components")
-            fig, ax = plt.subplots(figsize=(8, 8))
-            for dim in range(self.n_pca):
-                ax.hist(self.proj[:, dim], bins=bins, label=f"PCA Component {dim}",
-                        histtype="step", lw=2, color=f"C{dim}")
-            ax.set_xlabel("Value in PCA embedding")
-            ax.set_ylabel("Tracks")
-            ax.set_title("PCA Components")
-            ax.legend()
-            ax.tick_params(right=True, top=True, which="both", direction="in")
-            fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
-            pdf.savefig()
-            plt.close()
-
-            # Correlations of different PCA components
-            print(f"Plotting PCA Component i vs j")
-            fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
-            for dim_i in range(self.n_pca):
-                for dim_j in range(dim_i, self.n_pca):
-                    corr = np.corrcoef(self.proj[:, dim_i], self.proj[:, dim_j])[0, 1]
-                    _, _, _, im = ax[dim_i, dim_j].hist2d(self.proj[:, dim_i], self.proj[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
-                    ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
-                    ax[dim_i, dim_j].set_ylabel(f"PCA Component {dim_j}")
-                    ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
-                    ax[dim_i, dim_j].text(0.50, 1.02, f"Corr: {corr:.2f}", transform=ax[dim_i, dim_j].transAxes, ha="center")
-            fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
-            pdf.savefig()
-            plt.close()
-
-            # feature correlation check
-            for dim in range(self.n_pca):
-                print(f"Plotting PCA Component {dim} correlations with features")
-                for (name, slc, sample) in [
-                    ("T5", self.t5s, self.x_t5),
-                    ("PLS", self.pls, self.x_pls),
-                ]:
-                    if self.quickplot and dim > 2:
+                    if self.quickplot and dim > 1:
                         break
-                    n_features = sample.shape[1]
-                    for feature in range(n_features):
-                        if self.quickplot and feature > 5:
+
+                    # Draw page divider
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    ax.text(0.5, 0.5, f"{title}, PCA dim: {dim}",
+                            fontsize=20, ha='center', va='center')
+                    ax.axis('off')
+                    pdf.savefig()
+                    plt.close()
+
+                    print(f"Plotting PCA dim {dim} for {comparison} pairs")
+
+                    # the distance to plot
+                    dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else this_dist[:, dim]
+
+                    for feature in range(this_diff.shape[1]):
+                    # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+                    # for feature in [0]:
+                        if self.quickplot and feature > 2:
                             break
-                        feat_name = feature_name(name, feature)
-                        this_bins = feature_binning(dim, feat_name)
                         fig, ax = plt.subplots(figsize=(8, 8))
-                        _, _, _, im = ax.hist2d(self.proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
-                        ax.set_xlabel(f"PCA Component {dim}")
-                        ax.set_ylabel(f"{name} Feature {feature}: {feat_name}")
-                        ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
+                        feat_mask = mask & (this_diff[:, feature] != 0)
+                        feat_name = feature_name(comparison, feature)
+                        numer, denom = np.sum(mask & (this_diff[:, feature] == 0)), np.sum(mask)
+                        excluded = f"{int(100*numer/denom)}%"
+                        x, y = dist[feat_mask], np.abs(this_diff[feat_mask, feature])
+                        counts, xbins, ybins, im = ax.hist2d(x, y,
+                                                                bins=(bins["d"], 100),
+                                                                cmap=self.cmap, cmin=self.cmin)
+                        corr = np.corrcoef(x, y)[0, 1]
+
+                        if self.draw_envelope:
+                            x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
+                                                                                                bins["d"],
+                                                                                                lo=50,
+                                                                                                hi=99,
+                                                                                                )
+                            ax.scatter(x_bin_centers, percentile_lo, marker="_", color='lightgray', linewidth=1.2, label="25th-75th percentile")
+                            # ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
+
+                        xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
+                        ax.set_xlabel(f"Euclidean distance, {xlabel}")
+                        ax.set_ylabel(f"abs(Left - Right), feature {feature}: {feat_name}")
+                        ax.set_title(f"{comparison} pairs: {title}. Excluding {excluded}. Corr. = {corr:.2f}", fontsize=16)
                         ax.tick_params(right=True, top=True, which="both", direction="in")
-                        ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
+                        ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
+                        ax.semilogx()
                         fig.colorbar(im, ax=ax, pad=self.pad)
-                        fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
+                        fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
                         pdf.savefig()
                         plt.close()
 
+        return
 
-            # other model?
-            if self.other_model:
+        # PCA components
+        print("Plotting PCA components")
+        fig, ax = plt.subplots(figsize=(8, 8))
+        for dim in range(self.n_pca):
+            ax.hist(self.proj[:, dim], bins=bins, label=f"PCA Component {dim}",
+                    histtype="step", lw=2, color=f"C{dim}")
+        ax.set_xlabel("Value in PCA embedding")
+        ax.set_ylabel("Tracks")
+        ax.set_title("PCA Components")
+        ax.legend()
+        ax.tick_params(right=True, top=True, which="both", direction="in")
+        fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+        pdf.savefig()
+        plt.close()
 
-                # everything at once
-                print(f"Plotting PCA Component i vs j for model vs other model")
-                fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
-                for dim_i in range(self.n_pca):
-                    for dim_j in range(dim_i, self.n_pca):
-                        corr = np.corrcoef(self.proj[:, dim_i], self.proj_other[:, dim_j])[0, 1]
-                        _, _, _, im = ax[dim_i, dim_j].hist2d(self.proj[:, dim_i], self.proj_other[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
-                        ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
-                        ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
-                        ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
-                        ax[dim_i, dim_j].text(0.50, 1.02, f"Corr: {corr:.2f}", transform=ax[dim_i, dim_j].transAxes, ha="center")
-                fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
-                pdf.savefig()
-                plt.close()
+        # Correlations of different PCA components
+        print(f"Plotting PCA Component i vs j")
+        fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
+        for dim_i in range(self.n_pca):
+            for dim_j in range(dim_i, self.n_pca):
+                corr = np.corrcoef(self.proj[:, dim_i], self.proj[:, dim_j])[0, 1]
+                _, _, _, im = ax[dim_i, dim_j].hist2d(self.proj[:, dim_i], self.proj[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
+                ax[dim_i, dim_j].set_xlabel(f"PCA Component {dim_i}")
+                ax[dim_i, dim_j].set_ylabel(f"PCA Component {dim_j}")
+                ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
+                ax[dim_i, dim_j].text(0.50, 1.02, f"Corr: {corr:.2f}", transform=ax[dim_i, dim_j].transAxes, ha="center")
+        fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
+        pdf.savefig()
+        plt.close()
 
-                # only diagonal terms
-                for dim_i in range(self.n_pca):
-                    print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
+        # feature correlation check
+        for dim in range(self.n_pca):
+            print(f"Plotting PCA Component {dim} correlations with features")
+            for (name, slc, sample) in [
+                ("T5", self.t5s, self.x_t5),
+                ("PLS", self.pls, self.x_pls),
+            ]:
+                if self.quickplot and dim > 2:
+                    break
+                n_features = sample.shape[1]
+                for feature in range(n_features):
+                    if self.quickplot and feature > 5:
+                        break
+                    feat_name = feature_name(name, feature)
+                    this_bins = feature_binning(dim, feat_name)
                     fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(self.proj[:, dim_i], self.proj_other[:, dim_i], bins=bins, cmap=self.cmap, cmin=self.cmin)
-                    ax.set_xlabel(f"Model PCA Component {dim_i}")
-                    ax.set_ylabel(f"Other Model PCA Component {dim_i}")
-                    ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
+                    _, _, _, im = ax.hist2d(self.proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
+                    ax.set_xlabel(f"PCA Component {dim}")
+                    ax.set_ylabel(f"{name} Feature {feature}: {feat_name}")
+                    ax.set_title(f"PCA Component {dim} vs {name} Feature {feature}")
                     ax.tick_params(right=True, top=True, which="both", direction="in")
                     ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
                     fig.colorbar(im, ax=ax, pad=self.pad)
@@ -601,24 +657,58 @@ class PCAPlotter:
                     plt.close()
 
 
-            # sample checks
-            for (proj_data, title) in [(self.proj[self.t5s], "PCA Projection: T5s"),
-                                       (self.proj[self.pls], "PCA Projection: PLSs"),
-                                       (self.proj, "PCA Projection: T5s and PLSs"),
-                                       ]:
-                print(f"Plotting {title}")
-                for norm in [None, colors.LogNorm()]:
-                    fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(self.proj_data[:, 0], self.proj_data[:, 1], bins=bins, cmap=self.cmap, cmin=self.cmin, norm=norm)
-                    ax.set_xlabel("PCA Component 0")
-                    ax.set_ylabel("PCA Component 1")
-                    ax.set_title(title)
-                    ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
-                    ax.tick_params(right=True, top=True, which="both", direction="in")
-                    fig.colorbar(im, ax=ax, pad=self.pad)
-                    fig.subplots_adjust(right=0.98, left=0.12, bottom=0.09, top=0.95)
-                    pdf.savefig()
-                    plt.close()
+        # other model?
+        if self.other_model:
+
+            # everything at once
+            print(f"Plotting PCA Component i vs j for model vs other model")
+            fig, ax = plt.subplots(figsize=(40, 40), nrows=self.n_pca, ncols=self.n_pca)
+            for dim_i in range(self.n_pca):
+                for dim_j in range(dim_i, self.n_pca):
+                    corr = np.corrcoef(self.proj[:, dim_i], self.proj_other[:, dim_j])[0, 1]
+                    _, _, _, im = ax[dim_i, dim_j].hist2d(self.proj[:, dim_i], self.proj_other[:, dim_j], bins=bins, cmap=self.cmap, cmin=self.cmin)
+                    ax[dim_i, dim_j].set_xlabel(f"Model PCA Component {dim_i}")
+                    ax[dim_i, dim_j].set_ylabel(f"Other Model PCA Component {dim_j}")
+                    ax[dim_i, dim_j].tick_params(right=True, top=True, which="both", direction="in")
+                    ax[dim_i, dim_j].text(0.50, 1.02, f"Corr: {corr:.2f}", transform=ax[dim_i, dim_j].transAxes, ha="center")
+            fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
+            pdf.savefig()
+            plt.close()
+
+            # only diagonal terms
+            for dim_i in range(self.n_pca):
+                print(f"Plotting PCA Component {dim_i} vs {dim_i} for model vs other model")
+                fig, ax = plt.subplots(figsize=(8, 8))
+                _, _, _, im = ax.hist2d(self.proj[:, dim_i], self.proj_other[:, dim_i], bins=bins, cmap=self.cmap, cmin=self.cmin)
+                ax.set_xlabel(f"Model PCA Component {dim_i}")
+                ax.set_ylabel(f"Other Model PCA Component {dim_i}")
+                ax.set_title(f"Model vs Other Model PCA Component {dim_i}")
+                ax.tick_params(right=True, top=True, which="both", direction="in")
+                ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
+                fig.colorbar(im, ax=ax, pad=self.pad)
+                fig.subplots_adjust(right=0.98, left=0.13, bottom=0.09, top=0.95)
+                pdf.savefig()
+                plt.close()
+
+
+        # sample checks
+        for (proj_data, title) in [(self.proj[self.t5s], "PCA Projection: T5s"),
+                                    (self.proj[self.pls], "PCA Projection: PLSs"),
+                                    (self.proj, "PCA Projection: T5s and PLSs"),
+                                    ]:
+            print(f"Plotting {title}")
+            for norm in [None, colors.LogNorm()]:
+                fig, ax = plt.subplots(figsize=(8, 8))
+                _, _, _, im = ax.hist2d(self.proj_data[:, 0], self.proj_data[:, 1], bins=bins, cmap=self.cmap, cmin=self.cmin, norm=norm)
+                ax.set_xlabel("PCA Component 0")
+                ax.set_ylabel("PCA Component 1")
+                ax.set_title(title)
+                ax.text(1.08, 1.02, "Tracks", transform=ax.transAxes)
+                ax.tick_params(right=True, top=True, which="both", direction="in")
+                fig.colorbar(im, ax=ax, pad=self.pad)
+                fig.subplots_adjust(right=0.98, left=0.12, bottom=0.09, top=0.95)
+                pdf.savefig()
+                plt.close()
 
 
     # get t5s
