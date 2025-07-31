@@ -80,7 +80,7 @@ def main():
     plotter.do_tsne()
     with PdfPages(plotter.pdf_name) as pdf:
         plotter.plot1d(pdf)
-        # plotter.plot2d(pdf)
+        plotter.plot2d(pdf)
 
 
 class PCAPlotter:
@@ -290,7 +290,7 @@ class PCAPlotter:
             # T5T5 (left)
             eta = self.x_left_test[:, 0] * 2.5
             phi = np.arctan2(self.x_left_test[:, 2], self.x_left_test[:, 1])
-            pt = (self.x_left_test[:, 21] ** -1) * k2Rinv1GeVf * 2
+            pt = 1.0 / ((self.x_left_test[:, 21] ** -1) * k2Rinv1GeVf * 2)
             max_disp = np.maximum(self.x_left_test[:, 26], self.x_left_test[:, 26] + self.x_left_test[:, 29])
             self.x_left_test = np.concatenate((self.x_left_test,
                                                eta.reshape(-1, 1),
@@ -302,7 +302,7 @@ class PCAPlotter:
             # T5T5 (right)
             eta = self.x_right_test[:, 0] * 2.5
             phi = np.arctan2(self.x_right_test[:, 2], self.x_right_test[:, 1])
-            pt = (self.x_right_test[:, 21] ** -1) * k2Rinv1GeVf * 2
+            pt = 1.0 / ((self.x_right_test[:, 21] ** -1) * k2Rinv1GeVf * 2)
             max_disp = np.maximum(self.x_right_test[:, 26], self.x_right_test[:, 26] + self.x_right_test[:, 29])
             self.x_right_test = np.concatenate((self.x_right_test,
                                                 eta.reshape(-1, 1),
@@ -516,7 +516,6 @@ class PCAPlotter:
         bins = 100
 
         print("Plotting!")
-        # with PdfPages(self.pdf_name) as pdf:
 
         dup, nodup = 0, 1
         dims = range(-1, 6) # self.n_pca
@@ -817,7 +816,7 @@ def feature_name_t5(feature: int) -> str:
     elif feature == 31:
         return "phi"
     elif feature == 32:
-        return "pT"
+        return "1 / pT"
     elif feature == 33:
         return "max(disp_Inner, disp_Outer)"
 
