@@ -20,6 +20,7 @@ BRANCHES = [
     "pLS_ptIn",
     "pLS_eta",
     "pLS_deltaPhi",
+    "pLS_charge",
     "pLS_matched_simIdx",
 ]
 PARQUET_NAME = "phis.parquet"
@@ -119,6 +120,7 @@ class PhiPlotter:
             "pLS_phi": self.data["pLS_phi"][i_ev][pls_idx],
             "pLS_ptIn": self.data["pLS_ptIn"][i_ev][pls_idx],
             "pLS_eta": self.data["pLS_eta"][i_ev][pls_idx],
+            "pLS_charge": self.data["pLS_charge"][i_ev][pls_idx],
             "pLS_deltaPhi": self.data["pLS_deltaPhi"][i_ev][pls_idx],
             "t5_simIdx": self.data["t5_simIdx"][i_ev][t5_idx],
             "pLS_simIdx": self.data["pLS_simIdx"][i_ev][pls_idx],
@@ -172,11 +174,11 @@ class PhiPlotter:
     def plot(self, pdf_path: str) -> None:
         print(f"Plotting results to {pdf_path}")
         with PdfPages(pdf_path) as pdf:
-            self.plot_phis(pdf)
-            self.plot_dphis(pdf)
-            self.plot_dphi_vs_pt(pdf)
-            # self.plot_dphi_vs_pt_regions(pdf)
-            self.plot_publicity_dphi(pdf)
+            #self.plot_phis(pdf)
+            #self.plot_dphis(pdf)
+            #self.plot_dphi_vs_pt(pdf)
+            self.plot_dphi_vs_pt_regions(pdf)
+            #self.plot_publicity_dphi(pdf)
 
 
     def plot_phis(self, pdf: PdfPages) -> None:
@@ -266,13 +268,9 @@ class PhiPlotter:
             "pLS_phi",
         ]
         for pls_phi in pls_phis:
-            for eta_lo, eta_hi in (
-                [0.0, 1.0],
-                [1.0, 1.5],
-                [2.0, 2.5],
-                ):
-                mask = (np.abs(self.df["t5_eta"]) >= eta_lo) & (np.abs(self.df["t5_eta"]) < eta_hi)
-                print(f"Plotting for eta range {eta_lo} to {eta_hi} with {np.sum(mask)} events")
+            for charge in [-1, 1]:
+                mask = (self.df["pLS_charge"] == charge)
+                print(f"Plotting for charge {charge} with {np.sum(mask)} events")
                 x = 1/self.df["t5_pt"][mask]
                 y = normalize_angle(self.df["t5_phi"][mask] - self.df[pls_phi][mask])
                 fig, ax = plt.subplots(figsize=(8, 8))
@@ -286,7 +284,7 @@ class PhiPlotter:
                                         )
                 ax.set_xlabel("T5 pT")
                 ax.set_ylabel(f"T5 phi - {pls_phi} (radians)")
-                ax.set_title(f"dphi vs pT ({pls_phi}), eta {eta_lo} to {eta_hi}")
+                ax.set_title(f"dphi vs pT ({pls_phi}), charge {charge}")
                 fig.colorbar(im, ax=ax) # , pad=self.pad
                 fig.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.08)
                 pdf.savefig()
@@ -297,18 +295,23 @@ class PhiPlotter:
         print("Plotting delta phi distributions")
         args = {
             "bins": np.arange(-0.25, 0.25, 0.002),
-            "alpha": 0.8,
+            "alpha": 0.75,
             "histtype": "stepfilled",
             "edgecolor": "black",
             "linewidth": 2.0
         }
+        label = {
+            "pLS_phi_m_deltaPhi": r"$\phi^{T5}_{r} - \phi^{pLS}_{r}$",
+            "pLS_phi": r"$\phi^{T5}_{r} - \phi^{pLS}_{p}$",
+        }
         fig, ax = plt.subplots(figsize=(8, 8))
-        ax.hist(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi_m_deltaPhi"]), **args)
-        ax.hist(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi"]), **args)
+        ax.hist(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi_m_deltaPhi"]), **args, label=label["pLS_phi_m_deltaPhi"])
+        ax.hist(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi"]), **args, label=label["pLS_phi"])
         ax.set_xlabel(r"$\Delta\phi$(pLS, T5) [radians]")
         ax.set_ylabel("Pairs of T5/pLS tracks")
-        ax.set_title(r"Distribution of $\Delta\phi$")
-        ax.legend()
+        ax.set_title(r"T5 and pLS tracks matched by sim. parent")
+        ax.legend(frameon=False, loc="upper right")
+        ax.text(0.79, 0.83, "(default)", transform=ax.transAxes) # , fontsize=14)
         fig.subplots_adjust(left=0.17, right=0.95, top=0.95, bottom=0.1, hspace=0.3, wspace=0.3)
         pdf.savefig()
         plt.close()
