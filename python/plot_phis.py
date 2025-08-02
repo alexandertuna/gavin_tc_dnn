@@ -267,28 +267,38 @@ class PhiPlotter:
             "pLS_phi_m_deltaPhi",
             "pLS_phi",
         ]
+        pad = 0.01
+        bins = [
+            np.arange(0, 1.5, 0.01),
+            np.arange(-0.25, 0.25, 0.005)
+        ]
         for pls_phi in pls_phis:
             for charge in [-1, 1]:
-                mask = (self.df["pLS_charge"] == charge)
-                print(f"Plotting for charge {charge} with {np.sum(mask)} events")
-                x = 1/self.df["t5_pt"][mask]
-                y = normalize_angle(self.df["t5_phi"][mask] - self.df[pls_phi][mask])
-                fig, ax = plt.subplots(figsize=(8, 8))
-                _, _, _, im = ax.hist2d(x, y,
-                                        bins=[
-                                            np.arange(0, 1.5, 0.01), 
-                                            np.arange(-0.25, 0.25, 0.005)
-                                        ],
-                                        cmin=0.5,
-                                        cmap="hsv",
-                                        )
-                ax.set_xlabel("T5 pT")
-                ax.set_ylabel(f"T5 phi - {pls_phi} (radians)")
-                ax.set_title(f"dphi vs pT ({pls_phi}), charge {charge}")
-                fig.colorbar(im, ax=ax) # , pad=self.pad
-                fig.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.08)
-                pdf.savefig()
-                plt.close()
+                for eta_lo, eta_hi in [
+                    (0.0, 2.5),
+                    (0.0, 1.0),
+                    (2.0, 2.5),
+                ]:
+                    mask = (self.df["pLS_charge"] == charge) \
+                        & (np.abs(self.df["pLS_eta"]) >= eta_lo) \
+                        & (np.abs(self.df["pLS_eta"]) < eta_hi)
+                    print(f"Plotting for {charge=}, {eta_lo=}, {eta_hi=}, {np.sum(mask)} events")
+                    x = 1/self.df["t5_pt"][mask]
+                    y = normalize_angle(self.df["t5_phi"][mask] - self.df[pls_phi][mask])
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    _, _, _, im = ax.hist2d(x, y,
+                                            bins=bins,
+                                            cmin=0.5,
+                                            cmap="hsv",
+                                            )
+                    ax.set_xlabel("T5 pT")
+                    ax.set_ylabel(f"T5 phi - {pls_phi} (radians)")
+                    ax.set_title(f"{pls_phi}, {eta_lo} < eta < {eta_hi}, q={charge}")
+                    ax.text(1.08, 1.01, f"Pairs", transform=ax.transAxes)
+                    fig.colorbar(im, ax=ax, pad=pad)
+                    fig.subplots_adjust(left=0.15, right=0.99, top=0.95, bottom=0.08)
+                    pdf.savefig()
+                    plt.close()
 
 
     def plot_publicity_dphi(self, pdf: PdfPages) -> None:
