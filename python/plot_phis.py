@@ -175,9 +175,9 @@ class PhiPlotter:
         print(f"Plotting results to {pdf_path}")
         with PdfPages(pdf_path) as pdf:
             #self.plot_phis(pdf)
-            #self.plot_dphis(pdf)
+            self.plot_dphis(pdf)
             #self.plot_dphi_vs_pt(pdf)
-            self.plot_dphi_vs_pt_regions(pdf)
+            #self.plot_dphi_vs_pt_regions(pdf)
             #self.plot_publicity_dphi(pdf)
 
 
@@ -222,15 +222,15 @@ class PhiPlotter:
             plt.close()
 
         # 1D diff
+        bins = np.arange(-0.25, 0.25, 0.002)
         fig, ax = plt.subplots(figsize=(8, 8))
         for pls_phi in pls_phis:
-            # black outline, color fill
-            ax.hist(normalize_angle(self.df["t5_phi"] - self.df[pls_phi]), bins=np.arange(-0.25, 0.25, 0.002), label=pls_phi, alpha=0.5, histtype='stepfilled', edgecolor='black', linewidth=0.5)
+            ax.hist(normalize_angle(self.df["t5_phi"] - self.df[pls_phi]), bins=bins, label=pls_phi, alpha=0.5, histtype='stepfilled', edgecolor='black', linewidth=0.5)
         ax.set_xlabel("dphi (radians)")
         ax.set_ylabel("Counts")
         ax.set_title("Distribution of dphi")
         ax.legend()
-        fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1, hspace=0.3, wspace=0.3)
+        fig.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.1, hspace=0.3, wspace=0.3)
         pdf.savefig()
         plt.close()
 
