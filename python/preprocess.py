@@ -28,7 +28,7 @@ ETA_MAX_PLS = 4.0
 BONUS_FEATURES = 2
 
 # pairing hyper-parameters
-DELTA_R2_CUT_PLS_T5 = 0.02
+DELTA_R2_CUT_PLS_T5 = DELTA_R2_CUT
 DISP_VXY_CUT       = 0.1
 INVALID_SIM_IDX    = -1
 MAX_SIM            = 1000
@@ -898,7 +898,7 @@ def create_t5_pairs_balanced_parallel(features_per_event,
                                       n_workers=None,
                                       vectorize=True):
     t0 = time.time()
-    print("\n>>> Pair generation  (ΔR² < 0.02)  –  parallel mode")
+    print(f"\n>>> Pair generation  (ΔR² < {DELTA_R2_CUT})  –  parallel mode")
 
     work_args = [
         (evt_idx,
@@ -965,7 +965,7 @@ def create_pls_pairs_balanced_parallel(features_per_event,
                                        invalid_sim_idx=-1,
                                        n_workers=None):
     t0 = time.time()
-    print("\n>>> Pair generation  (ΔR² < 0.02)  –  parallel mode")
+    print(f"\n>>> Pair generation  (ΔR² < {DELTA_R2_CUT})  –  parallel mode")
 
     work_args = [
         (evt_idx,
