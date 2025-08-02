@@ -21,14 +21,14 @@ random.seed(42)
 np.random.seed(42)
 os.environ["PYTHONHASHSEED"] = str(42)
 
-DELTA_R2_CUT = 0.02
+# DELTA_R2_CUT = 0.02
 ETA_MAX = 2.5
 ETA_MAX_PLS = 4.0
 
 BONUS_FEATURES = 2
 
 # pairing hyper-parameters
-DELTA_R2_CUT_PLS_T5 = DELTA_R2_CUT
+# DELTA_R2_CUT_PLS_T5 = DELTA_R2_CUT
 DISP_VXY_CUT       = 0.1
 INVALID_SIM_IDX    = -1
 MAX_SIM            = 1000
@@ -112,6 +112,14 @@ def delta_phi(phi1, phi2):
         delta += 2 * np.pi
     return delta
 
+def normalize_angle(angle):
+    # Adjust angle to be within the range [-pi, pi]
+    if angle > np.pi:
+        angle -= 2 * np.pi
+    elif angle < -np.pi:
+        angle += 2 * np.pi
+    return angle
+
 def load_t5_features(FEATURES_T5):
     with open(FEATURES_T5, "rb") as fi:
         data = pickle.load(fi)
@@ -181,6 +189,9 @@ class Preprocessor:
                  PAIRS_T5T5,
                  PAIRS_T5PLS,
                  PAIRS_PLSPLS,
+                 pls_position_phi,
+                 upweight_displaced,
+                 delta_r2_cut,
                  ):
 
         self.bonus_features = BONUS_FEATURES
@@ -192,6 +203,9 @@ class Preprocessor:
         self.PAIRS_T5PLS = PAIRS_T5PLS
         self.PAIRS_PLSPLS = PAIRS_PLSPLS
         self.root_path = root_path
+        self.pls_position_phi = pls_position_phi
+        self.upweight_displaced = upweight_displaced
+        self.DELTA_R2_CUT = delta_r2_cut
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
 
         print("Getting T5 features")
@@ -555,7 +569,10 @@ class Preprocessor:
                 ptIn = branches['pLS_ptIn'][ev][i]
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
-                # deltaPhi = branches['pLS_deltaPhi'][ev][i]
+                if self.pls_position_phi:
+                    print("Using position-based phi for pLS features")
+                    deltaPhi = branches['pLS_deltaPhi'][ev][i]
+                    phi = normalize_angle(phi - deltaPhi)
 
                 # ――― build feature vector -------------------------------------------
                 f = [
@@ -616,6 +633,7 @@ class Preprocessor:
             max_dissimilar_pairs_per_event = MAX_DIS,
             invalid_sim_idx                = -1,
             n_workers                      = min(32, os.cpu_count() // 2),
+            DELTA_R2_CUT                   = self.DELTA_R2_CUT,
         )
 
         # checks
@@ -650,6 +668,7 @@ class Preprocessor:
             max_dissimilar_pairs_per_event = 1000,
             invalid_sim_idx                = -1,
             n_workers                      = min(32, os.cpu_count() // 2),
+            DELTA_R2_CUT                   = self.DELTA_R2_CUT,
         )
 
         if len(y) == 0:
@@ -661,7 +680,7 @@ class Preprocessor:
             print(f"Filtering {np.sum(~mask)} pairs with NaN/Inf")
             X_left, X_right, y, disp_L, disp_R = X_left[mask], X_right[mask], y[mask], disp_L[mask], disp_R[mask]
 
-        weights_t5 = np.where(disp_L | disp_R, 5.0, 1.0).astype(np.float32)
+        weights_t5 = np.where(disp_L | disp_R, self.upweight_displaced, 1.0).astype(np.float32)
 
         X_left_train, X_left_test, \
         X_right_train, X_right_test, \
@@ -709,7 +728,7 @@ class Preprocessor:
     def get_t5_pls_pairs(self, pLS_features_per_event, pLS_sim_indices_per_event, features_per_event, displaced_per_event, sim_indices_per_event):
 
         # now drive over all events in parallel, with a global timer & totals
-        print(f"\n>>> Building pLS-T5 pairs (ΔR² < {DELTA_R2_CUT_PLS_T5}) …")
+        print(f"\n>>> Building pLS-T5 pairs (ΔR² < {self.DELTA_R2_CUT}) …")
         t0 = time.time()
         all_packed = []
         sim_total = 0
@@ -725,7 +744,8 @@ class Preprocessor:
                     features_per_event[ev],
                     sim_indices_per_event[ev],
                     displaced_per_event[ev],
-                    MAX_SIM, MAX_DIS, INVALID_SIM_IDX
+                    MAX_SIM, MAX_DIS, INVALID_SIM_IDX,
+                    self.DELTA_R2_CUT
                 )
                 for ev in range(len(features_per_event))
                 # for ev in range(50)
@@ -747,7 +767,7 @@ class Preprocessor:
         t5_feats  = np.array([p[1] for p in all_packed], dtype=np.float32)
         y_pls     = np.array([p[2] for p in all_packed], dtype=np.int32)
         disp_flag = np.array([p[3] for p in all_packed], dtype=bool)
-        w_pls     = np.array([5.0 if p[3] else 1.0 for p in all_packed], dtype=np.float32)
+        w_pls     = np.array([self.upweight_displaced if p[3] else 1.0 for p in all_packed], dtype=np.float32)
 
         # train/test split
         X_pls_train, X_pls_test, \
@@ -787,7 +807,8 @@ class Preprocessor:
 def _pairs_single_event(evt_idx,
                         F, S, D,
                         max_sim, max_dis,
-                        invalid_sim):
+                        invalid_sim,
+                        DELTA_R2_CUT):
     """
     Worker run in a separate process.
     Returns two Python lists with the selected (i,j) indices per event.
@@ -848,7 +869,8 @@ def _pairs_single_event(evt_idx,
 def _pairs_single_event_vectorized(evt_idx,
                                    F, S, D,
                                    max_sim, max_dis,
-                                   invalid_sim):
+                                   invalid_sim,
+                                   DELTA_R2_CUT):
     t0 = time.time()
     n = F.shape[0]
     eta1, phi1 = F[:, 0] * ETA_MAX, np.arctan2(F[:, 2], F[:, 1])
@@ -896,7 +918,8 @@ def create_t5_pairs_balanced_parallel(features_per_event,
                                       max_dissimilar_pairs_per_event=450,
                                       invalid_sim_idx=-1,
                                       n_workers=None,
-                                      vectorize=True):
+                                      vectorize=True,
+                                      DELTA_R2_CUT=0.0):
     t0 = time.time()
     print(f"\n>>> Pair generation  (ΔR² < {DELTA_R2_CUT})  –  parallel mode")
 
@@ -907,7 +930,9 @@ def create_t5_pairs_balanced_parallel(features_per_event,
         displaced_per_event[evt_idx],
         max_similar_pairs_per_event,
         max_dissimilar_pairs_per_event,
-        invalid_sim_idx)
+        invalid_sim_idx,
+        DELTA_R2_CUT,
+        )
         for evt_idx in range(len(features_per_event))
         # for evt_idx in range(50)
     ]
@@ -963,7 +988,8 @@ def create_pls_pairs_balanced_parallel(features_per_event,
                                        max_similar_pairs_per_event=100,
                                        max_dissimilar_pairs_per_event=450,
                                        invalid_sim_idx=-1,
-                                       n_workers=None):
+                                       n_workers=None,
+                                       DELTA_R2_CUT=0.0):
     t0 = time.time()
     print(f"\n>>> Pair generation  (ΔR² < {DELTA_R2_CUT})  –  parallel mode")
 
@@ -973,7 +999,9 @@ def create_pls_pairs_balanced_parallel(features_per_event,
          sim_indices_per_event[evt_idx],
          max_similar_pairs_per_event,
          max_dissimilar_pairs_per_event,
-         invalid_sim_idx)
+         invalid_sim_idx,
+         DELTA_R2_CUT,
+         )
          for evt_idx in range(len(features_per_event))
          # for evt_idx in range(5)
     ]
@@ -1017,7 +1045,8 @@ def _pairs_pLS_T5_single_vectorized(evt_idx,
                                     F_pLS, S_pLS,
                                     F_T5,  S_T5, D_T5,
                                     max_sim, max_dis,
-                                    invalid_sim):
+                                    invalid_sim,
+                                    DELTA_R2_CUT_PLS_T5):
     """
     Build similar / dissimilar pLS-T5 pairs for a single event,
     printing per-event summary.
@@ -1086,7 +1115,8 @@ def _pairs_pLS_T5_single(evt_idx,
                          F_pLS, S_pLS,
                          F_T5,  S_T5, D_T5,
                          max_sim, max_dis,
-                         invalid_sim):
+                         invalid_sim,
+                         DELTA_R2_CUT_PLS_T5):
     """
     Build similar / dissimilar pLS-T5 pairs for a single event,
     printing per-event summary.
@@ -1153,7 +1183,8 @@ def _pairs_pLS_T5_single(evt_idx,
 def _pairs_pls_single_event_vectorized(evt_idx,
                                        F, S,
                                        max_sim, max_dis,
-                                       invalid_sim):
+                                       invalid_sim,
+                                       DELTA_R2_CUT):
     t0 = time.time()
     n = F.shape[0]
     eta1, phi1 = F[:, 0] * ETA_MAX_PLS, np.arctan2(F[:, 3], F[:, 2])

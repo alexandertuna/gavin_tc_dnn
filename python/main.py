@@ -33,6 +33,12 @@ def options():
                         help="Flag to load precomputed features instead of computing them from scratch")
     parser.add_argument("--load_pairs", action="store_true",
                         help="Flag to load precomputed pairs instead of computing them from scratch")
+    parser.add_argument("--upweight_displaced", type=float, default=5.0,
+                        help="Upweight factor for displaced features")
+    parser.add_argument("--delta_r2_cut", type=float, default=0.02,
+                        help="Delta R^2 cut for feature selection")
+    parser.add_argument("--pls_position_phi", action="store_true",
+                        help="Flag to use position-based phi for PLS features")
     parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
                         help="Path to the precomputed T5 features file")
     parser.add_argument("--features_pls", type=str, default="features_pls.pkl",
@@ -63,6 +69,9 @@ def main():
                              args.pairs_t5t5,
                              args.pairs_t5pls,
                              args.pairs_plspls,
+                             pls_position_phi=args.pls_position_phi,
+                             upweight_displaced=args.upweight_displaced,
+                             delta_r2_cut=args.delta_r2_cut
                              )
 
     # Tests?
