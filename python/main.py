@@ -11,7 +11,7 @@ from pathlib import Path
 
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-i", "--input", type=str, default="/ceph/users/atuna/work/gavin_tc_dnn/data/pls_t5_embed_0p75.root",
+    parser.add_argument("-i", "--input", type=str, default="/ceph/users/atuna/work/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiCharge.root",
                         help="Path to the input LSTNtuple ROOT file")
     parser.add_argument("--model", type=str, default="model_weights.pth",
                         help="Path to save or load the model weights")
