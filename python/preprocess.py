@@ -95,7 +95,7 @@ branches_list += [
     'pLS_pz',
     'pLS_isQuad',
     'pLS_isFake',
-    #'pLS_deltaPhi',
+    'pLS_deltaPhi',
     #'pLS_charge',
 ]
 
@@ -207,6 +207,8 @@ class Preprocessor:
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
+        print(f"Using position-based phi for pLS features: {self.pls_position_phi}")
+        print(f"Upweighting displaced T5s: {self.upweight_displaced}")
 
         print("Getting T5 features")
         [features_per_event,
@@ -538,6 +540,7 @@ class Preprocessor:
 
         KEEP_FRAC_PLS = 0.40
         print(f"\nBuilding pLS features …")
+        print("Using position-based phi for pLS features")
 
         n_events = np.shape(branches['pLS_eta'])[0]
         pLS_features_per_event    = []
@@ -570,7 +573,6 @@ class Preprocessor:
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
                 if self.pls_position_phi:
-                    print("Using position-based phi for pLS features")
                     deltaPhi = branches['pLS_deltaPhi'][ev][i]
                     phi = normalize_angle(phi - deltaPhi)
 
