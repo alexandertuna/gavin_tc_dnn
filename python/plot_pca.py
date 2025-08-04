@@ -596,8 +596,6 @@ class PCAPlotter:
                         pdf.savefig()
                         plt.close()
 
-        return
-
         # PCA components
         print("Plotting PCA components")
         fig, ax = plt.subplots(figsize=(8, 8))
@@ -627,6 +625,8 @@ class PCAPlotter:
         fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
         pdf.savefig()
         plt.close()
+
+        return
 
         # feature correlation check
         for dim in range(self.n_pca):
