@@ -10,7 +10,8 @@ from matplotlib import colors
 from matplotlib.backends.backend_pdf import PdfPages
 mpl.rcParams["font.size"] = 16
 
-ETA_RESTRICTION = 0.5
+k2Rinv1GeVf = (2.99792458e-3 * 3.8) / 2
+ETA_RESTRICTION = 3.5
 INVALID_SIM_IDX = -1
 BRANCHES = [
     "t5_pt",
@@ -57,7 +58,7 @@ PARQUET_NAME = "phis.parquet"
 
 def options() -> argparse.Namespace:
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--ntuple", type=str, default="/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiChargeXYZ_10events.root",
+    parser.add_argument("--ntuple", type=str, default="/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiChargeXYZ.root",
                         help="Input LSTNtuple ROOT file")
     parser.add_argument("--parquet", type=str, default=PARQUET_NAME,
                         help="Path to save the intermediate parquet file")
@@ -89,6 +90,8 @@ class PhiPlotter:
     def __init__(self, max_ev: int, debug: bool = False):
         self.max_ev = max_ev
         self.debug = debug
+        self.r_common = 36
+
 
 
     def load_data(self, ntuple_path: str) -> None:
@@ -233,6 +236,12 @@ class PhiPlotter:
         # self.df["pLS_phi_corr_p"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + self.df["dphi_prop"])
         # self.df["pLS_phi_corr_p2"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + 0.5*self.df["dphi_prop"])
 
+        # project pLS and T5 phi to a common radius (36 cm)
+        # delta = dr * k2Rinv1GeVf / pt * charge
+        self.df["t5_dphi_common"] = (self.r_common - self.df["t5_r"]) * k2Rinv1GeVf / self.df["t5_pt"] * self.df["t5_charge"]
+        self.df["pLS_dphi_common"] = (self.r_common - self.df["pLS_r"]) * k2Rinv1GeVf / self.df["pLS_ptIn"] * self.df["pLS_charge"]
+        self.df["t5_phi_common"] = normalize_angle(self.df["t5_phi"] - self.df["t5_dphi_common"])
+        self.df["pLS_phi_common"] = normalize_angle(self.df["pLS_phi_position"] - self.df["pLS_dphi_common"])
 
 
     def make_track_pair_dataframe_one_event(self, i_ev: int) -> pd.DataFrame:
@@ -311,8 +320,9 @@ class PhiPlotter:
             #self.plot_phis(pdf)
             self.plot_dphis(pdf)
             self.plot_dphi_vs_pt(pdf)
+            self.plot_dphi_common(pdf)
             #self.plot_dphi_vs_pt_regions(pdf)
-            #self.plot_publicity_dphi(pdf)
+            self.plot_publicity_dphi(pdf)
 
 
     def plot_pt_eta(self, pdf: PdfPages) -> None:
@@ -490,6 +500,7 @@ class PhiPlotter:
             "pLS_phi_p_deltaPhi",
             "pLS_phi_m_deltaPhi",
             "pLS_phi",
+            "pLS_phi_position",
             # "pLS_phi_corr_p2",
             # "pLS_phi_corr_p",
             # "pLS_phi_corr_m",
@@ -504,19 +515,47 @@ class PhiPlotter:
             _, _, _, im = ax.hist2d(x[mask],
                                     y[mask],
                                     bins=[
-                                        np.arange(0, 1.5, 0.01), 
+                                        np.arange(0, 1.35, 0.01),
                                         np.arange(-0.25, 0.25, 0.005)
                                     ],
                                     cmin=0.5,
                                     cmap="hsv",
                                     )
-            ax.set_xlabel("T5 pT")
-            ax.set_ylabel(f"T5 phi - {pls_phi} (radians)")
-            ax.set_title(f"Distribution of dphi vs pT ({pls_phi})")
-            fig.colorbar(im, ax=ax) # , pad=self.pad
-            fig.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.08)
+            ax.set_xlabel("T5 pT [GeV]")
+            ax.set_ylabel(f"T5 phi - {pls_phi} [radians]")
+            ax.set_title(f"dphi vs pT ({pls_phi})")
+            fig.colorbar(im, ax=ax, pad=0.01) # , pad=self.pad
+            fig.subplots_adjust(left=0.15, right=0.99, top=0.95, bottom=0.08)
             pdf.savefig()
             plt.close()
+
+
+    def plot_dphi_common(self, pdf: PdfPages) -> None:
+
+        print("Plotting dphi common vs pT")
+
+        x = 1 / self.df["t5_pt"]
+        y = normalize_angle(self.df["t5_phi_common"] - self.df["pLS_phi_common"])
+        mask = np.abs(self.df["t5_eta"]) < ETA_RESTRICTION
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        _, _, _, im = ax.hist2d(x[mask],
+                                y[mask],
+                                bins=[
+                                    np.arange(0, 1.35, 0.01),
+                                    np.arange(-0.25, 0.25, 0.005)
+                                ],
+                                cmin=0.5,
+                                cmap="hsv",
+                                )
+        ax.set_xlabel("T5 1/pT [GeV]")
+        ax.set_ylabel(f"T5 phi - pLS phi [radians]")
+        ax.text(1.08, 1.02, f"Pairs", transform=ax.transAxes)
+        ax.text(0.06, 1.01, f"Projected to r = {self.r_common}cm", transform=ax.transAxes)
+        fig.colorbar(im, ax=ax, pad=0.01)
+        fig.subplots_adjust(left=0.15, right=0.99, top=0.95, bottom=0.08)
+        pdf.savefig()
+        plt.close()
 
 
     def plot_dphi_vs_pt_regions(self, pdf: PdfPages) -> None:
@@ -527,7 +566,7 @@ class PhiPlotter:
         ]
         pad = 0.01
         bins = [
-            np.arange(0, 1.5, 0.01),
+            np.arange(0, 1.35, 0.01),
             np.arange(-0.25, 0.25, 0.005)
         ]
         for pls_phi in pls_phis:
@@ -569,11 +608,12 @@ class PhiPlotter:
             "linewidth": 2.0
         }
         label = {
+            "pLS_phi_common": r"$\phi^{T5}_{r=36} - \phi^{pLS}_{r=36}$",
             "pLS_phi_m_deltaPhi": r"$\phi^{T5}_{r} - \phi^{pLS}_{r}$",
             "pLS_phi": r"$\phi^{T5}_{r} - \phi^{pLS}_{p}$",
         }
         fig, ax = plt.subplots(figsize=(8, 8))
-        ax.hist(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi_m_deltaPhi"]), **args, label=label["pLS_phi_m_deltaPhi"])
+        ax.hist(normalize_angle(self.df["t5_phi_common"] - self.df["pLS_phi_common"]), **args, label=label["pLS_phi_common"])
         ax.hist(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi"]), **args, label=label["pLS_phi"])
         ax.set_xlabel(r"$\Delta\phi$(pLS, T5) [radians]")
         ax.set_ylabel("Pairs of T5/pLS tracks")
