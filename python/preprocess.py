@@ -21,6 +21,8 @@ random.seed(42)
 np.random.seed(42)
 os.environ["PYTHONHASHSEED"] = str(42)
 
+k2Rinv1GeVf = (2.99792458e-3 * 3.8) / 2
+
 # DELTA_R2_CUT = 0.02
 ETA_MAX = 2.5
 ETA_MAX_PLS = 4.0
@@ -77,7 +79,10 @@ branches_list = [
     't5_pMatched',
     't5_sim_vxy',
     't5_sim_vz',
-    't5_matched_simIdx'
+    't5_matched_simIdx',
+
+    "t3_centerX",
+    "t3_centerY",
 ]
 
 branches_list += [
@@ -96,7 +101,10 @@ branches_list += [
     'pLS_isQuad',
     'pLS_isFake',
     'pLS_deltaPhi',
-    #'pLS_charge',
+    'pLS_charge',
+    'pLS_x',
+    'pLS_y',
+    'pLS_z',
 ]
 
 # Hit-dependent branches
@@ -189,7 +197,7 @@ class Preprocessor:
                  PAIRS_T5T5,
                  PAIRS_T5PLS,
                  PAIRS_PLSPLS,
-                 pls_position_phi,
+                 use_phi_projection,
                  upweight_displaced,
                  delta_r2_cut,
                  ):
@@ -203,11 +211,11 @@ class Preprocessor:
         self.PAIRS_T5PLS = PAIRS_T5PLS
         self.PAIRS_PLSPLS = PAIRS_PLSPLS
         self.root_path = root_path
-        self.pls_position_phi = pls_position_phi
+        self.use_phi_projection = use_phi_projection
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
-        print(f"Using position-based phi for pLS features: {self.pls_position_phi}")
+        print(f"Using projected phi: {self.use_phi_projection}")
         print(f"Upweighting displaced T5s: {self.upweight_displaced}")
 
         print("Getting T5 features")
@@ -390,6 +398,94 @@ class Preprocessor:
             print(f"vectorize={vectorize}, n_workers={n_workers}, it={it}: {duration:.4f} seconds")
 
 
+    def get_t5_phi_projected(self, branches, ev: int, r_common: float = 36.0):
+
+        # Get t5_r by finding the layer where t5_phi matches hit phi
+        idx0s = branches["t5_t3_idx0"][ev]
+        t5_0_phis = branches["t5_t3_0_phi"][ev][idx0s]
+        t5_2_phis = branches["t5_t3_2_phi"][ev][idx0s]
+        t5_0_rs = branches["t5_t3_0_r"][ev][idx0s]
+        t5_2_rs = branches["t5_t3_2_r"][ev][idx0s]
+        phi_0_eq = np.abs(t5_0_phis - branches["t5_phi"][ev]) < 1e-5
+        t5_phi_reco = np.where(phi_0_eq, t5_0_phis, t5_2_phis)
+        t5_r = np.where(phi_0_eq, t5_0_rs, t5_2_rs)
+        almost_equal = np.allclose(branches["t5_phi"][ev], t5_phi_reco, atol=1e-5)
+        if not np.all(almost_equal):
+            raise ValueError("Mismatch in t5_phi and derived t5_phi")
+
+        # Get t5_charge
+        # https://github.com/cms-sw/cmssw/blob/master/RecoTracker/LSTCore/src/alpaka/Quintuplet.h
+        # g = triplets.centerX()[innerTripletIndex];
+        # f = triplets.centerY()[innerTripletIndex];
+        x_center = branches["t3_centerX"][ev][idx0s]
+        y_center = branches["t3_centerY"][ev][idx0s]
+        x1 = branches["t5_t3_0_x"][ev][idx0s]
+        y1 = branches["t5_t3_0_y"][ev][idx0s]
+        x3 = branches["t5_t3_2_x"][ev][idx0s]
+        y3 = branches["t5_t3_2_y"][ev][idx0s]
+        slope3c = (y3 - y_center) / (x3 - x_center)
+        slope1c = (y1 - y_center) / (x1 - x_center)
+
+        # Vectorized logic for charge determination
+        charge_p = np.ones_like(x_center)
+        charge_n = -np.ones_like(x_center)
+        mask_y3 = (y3 - y_center) > 0
+        mask_y1 = (y1 - y_center) > 0
+        mask_x3 = (x3 - x_center) > 0
+        mask_x1 = (x1 - x_center) > 0
+        mask_s3 = slope3c > 0
+        mask_s1 = slope1c > 0
+        mask_ss = slope3c > slope1c
+        mask_p = (
+            ((mask_y3 & mask_y1) & ~mask_s1 & mask_s3) |
+            ((mask_y3 & mask_y1) & (mask_s1 == mask_s3) & ~mask_ss) |
+            ((~mask_y3 & ~mask_y1) & ~mask_s1 & mask_s3) |
+            ((~mask_y3 & ~mask_y1) & (mask_s1 == mask_s3) & ~mask_ss) |
+            ((~mask_y3 & mask_y1) & mask_x3 & mask_x1) |
+            ((mask_y3 & ~mask_y1) & ~mask_x3 & ~mask_x1)
+        )
+        mask_n = (
+            ((mask_y3 & mask_y1) & mask_s1 & ~mask_s3) |
+            ((mask_y3 & mask_y1) & (mask_s1 == mask_s3) & mask_ss) |
+            ((~mask_y3 & ~mask_y1) & mask_s1 & ~mask_s3) |
+            ((~mask_y3 & ~mask_y1) & (mask_s1 == mask_s3) & mask_ss) |
+            ((~mask_y3 & mask_y1) & ~mask_x3 & ~mask_x1) |
+            ((mask_y3 & ~mask_y1) & mask_x3 & mask_x1)
+        )
+        if np.any(mask_p & mask_n) or np.any(~mask_p & ~mask_n):
+            overlap = np.flatten(mask_p & mask_n)
+            print(f"Warning: Overlapping masks detected in charge determination: {np.sum(overlap)}")
+            raise ValueError("Charge determination resulted in overlapping masks")
+        t5_charge = charge_p * mask_p + charge_n * mask_n
+
+        # projection
+        dphi = (r_common - t5_r) * k2Rinv1GeVf / branches["t5_pt"][ev] * t5_charge
+        phi = branches["t5_phi"][ev] - dphi
+
+        # normalize phi to [-pi, pi]
+        phi[phi > np.pi] -= 2 * np.pi
+        phi[phi < -np.pi] += 2 * np.pi
+
+        return phi
+
+
+    def get_pls_phi_projected(self, branches, ev: int, r_common: float = 36.0):
+
+        # pls r
+        pLS_r = np.sqrt(branches["pLS_x"][ev]**2 + branches["pLS_y"][ev]**2)
+        pLS_phi_position = np.arctan2(branches["pLS_y"][ev], branches["pLS_x"][ev])
+
+        # projection
+        dphi = (r_common - pLS_r) * k2Rinv1GeVf / branches["pLS_ptIn"][ev] * branches["pLS_charge"][ev]
+        phi = pLS_phi_position - dphi
+
+        # normalize phi to [-pi, pi]
+        phi[phi > np.pi] -= 2 * np.pi
+        phi[phi < -np.pi] += 2 * np.pi
+
+        return phi
+
+
     def get_t5_features(self, branches):
 
         z_max = np.max([np.max(event) for event in branches[f't5_t3_4_z']])
@@ -411,6 +507,9 @@ class Preprocessor:
 
         kept_tot, init_tot = 0, 0
         for ev in tqdm(range(n_events)):
+
+            if self.use_phi_projection:
+                phi_projected = self.get_t5_phi_projected(branches, ev)
 
             n_t5 = len(branches['t5_t3_idx0'][ev])
             init_tot += n_t5
@@ -465,10 +564,12 @@ class Preprocessor:
                 d_prompt  = branches['t5_t3_promptScore2'   ][ev][i] - s1_prompt
                 d_disp    = branches['t5_t3_displacedScore2'][ev][i] - s1_disp
 
+                phi = phi1 if not self.use_phi_projection else phi_projected[i]
+
                 f = [
                     eta1 / ETA_MAX,
-                    np.cos(phi1),
-                    np.sin(phi1),
+                    np.cos(phi),
+                    np.sin(phi),
                     z1 / z_max,
                     r1 / r_max,
 
@@ -554,6 +655,9 @@ class Preprocessor:
             if n_pls == 0:
                 continue
 
+            if self.use_phi_projection:
+                phi_projected = self.get_pls_phi_projected(branches, ev)
+
             feat_evt, eta_evt, sim_evt = [], [], []
 
             for i in range(n_pls):
@@ -565,14 +669,14 @@ class Preprocessor:
                 # ――― hit‑level quantities -------------------------------------------
                 eta = branches['pLS_eta'][ev][i]
                 etaErr = branches['pLS_etaErr'][ev][i]
-                phi = branches['pLS_phi'][ev][i]
+                phi = branches['pLS_phi'][ev][i] if not self.use_phi_projection else phi_projected[i]
                 circleCenterX = np.abs(branches['pLS_circleCenterX'][ev][i])
                 circleCenterY = np.abs(branches['pLS_circleCenterY'][ev][i])
                 circleRadius = branches['pLS_circleRadius'][ev][i]
                 ptIn = branches['pLS_ptIn'][ev][i]
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
-                if self.pls_position_phi:
+                if self.use_phi_projection:
                     deltaPhi = branches['pLS_deltaPhi'][ev][i]
                     phi = normalize_angle(phi - deltaPhi)
 

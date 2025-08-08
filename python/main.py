@@ -11,7 +11,7 @@ from pathlib import Path
 
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-i", "--input", type=str, default="/ceph/users/atuna/work/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiCharge.root",
+    parser.add_argument("-i", "--input", type=str, default="/ceph/users/atuna/work/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiChargeXYZ.root",
                         help="Path to the input LSTNtuple ROOT file")
     parser.add_argument("--model", type=str, default="model_weights.pth",
                         help="Path to save or load the model weights")
@@ -37,7 +37,7 @@ def options():
                         help="Upweight factor for displaced features")
     parser.add_argument("--delta_r2_cut", type=float, default=0.02,
                         help="Delta R^2 cut for feature selection")
-    parser.add_argument("--pls_position_phi", action="store_true",
+    parser.add_argument("--use_phi_projection", action="store_true",
                         help="Flag to use position-based phi for PLS features")
     parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
                         help="Path to the precomputed T5 features file")
@@ -69,7 +69,7 @@ def main():
                              args.pairs_t5t5,
                              args.pairs_t5pls,
                              args.pairs_plspls,
-                             pls_position_phi=args.pls_position_phi,
+                             use_phi_projection=args.use_phi_projection,
                              upweight_displaced=args.upweight_displaced,
                              delta_r2_cut=args.delta_r2_cut
                              )
