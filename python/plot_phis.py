@@ -93,7 +93,6 @@ class PhiPlotter:
         self.r_common = 36
 
 
-
     def load_data(self, ntuple_path: str) -> None:
         print(f"Loading data from {ntuple_path}")
         with uproot.open(ntuple_path) as fi:
@@ -216,25 +215,7 @@ class PhiPlotter:
         print("Adding additional columns to the dataframe")
         print("t5_phi", self.df["t5_phi"].min(), self.df["t5_phi"].max())
         print(self.df["t5_phi"])
-        self.df["pLS_phi_p_deltaPhi"] = normalize_angle(self.df["pLS_phi"] + self.df["pLS_deltaPhi"])
-        self.df["pLS_phi_m_deltaPhi"] = normalize_angle(self.df["pLS_phi"] - self.df["pLS_deltaPhi"])
-        self.df["dphi_t5_pLS"] = np.abs(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi"]))
-        self.df["dphi_t5_pLS_p_deltaPhi"] = np.abs(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi_p_deltaPhi"]))
-        self.df["dphi_t5_pLS_m_deltaPhi"] = np.abs(normalize_angle(self.df["t5_phi"] - self.df["pLS_phi_m_deltaPhi"]))
         print(self.df.head(10))
-        print(self.df["dphi_t5_pLS"].min(), self.df["dphi_t5_pLS"].max())
-
-        # corrected pls phi
-        # correction based on the B*c and rxy(pls)-rxy(T5):
-        #   it's roughly delta = dr/173/pt*charge
-        # t5_t3_0_r, t5_t3_1_r
-        # pixel barrel r_max is about 15
-        # self.df["pLS_r"] = 15.0
-        # self.df["t5_r"] = 36.0 # , 51.0
-        self.df["dphi_prop"] = (self.df["t5_r"] - self.df["pLS_r"]) / 10.0 / 173.0 / self.df["pLS_ptIn"] * self.df["pLS_charge"]
-        # self.df["pLS_phi_corr_m"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] - self.df["dphi_prop"])
-        # self.df["pLS_phi_corr_p"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + self.df["dphi_prop"])
-        # self.df["pLS_phi_corr_p2"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + 0.5*self.df["dphi_prop"])
 
         # project pLS and T5 phi to a common radius (36 cm)
         # delta = dr * k2Rinv1GeVf / pt * charge
@@ -317,11 +298,9 @@ class PhiPlotter:
             self.plot_charge(pdf)
             self.plot_eta_vs_r(pdf)
             self.plot_pls_phi_vs_phi(pdf)
-            #self.plot_phis(pdf)
             self.plot_dphis(pdf)
             self.plot_dphi_vs_pt(pdf)
             self.plot_dphi_common(pdf)
-            #self.plot_dphi_vs_pt_regions(pdf)
             self.plot_publicity_dphi(pdf)
 
 
@@ -430,37 +409,11 @@ class PhiPlotter:
         plt.close()
 
 
-    def plot_phis(self, pdf: PdfPages) -> None:
-        print("Plotting phi distributions")
-        phis = [
-            "t5_phi",
-            "pLS_phi",
-            "pLS_phi_m_deltaPhi",
-            "pLS_phi_p_deltaPhi",
-        ]
-        fig, axs = plt.subplots(figsize=(8, 8), nrows=2, ncols=2)
-        for i, phi in enumerate(phis):
-            ax = axs[i // 2, i % 2]
-            ax.hist(self.df[phi], bins=np.arange(-3.2, 3.3, 0.1), label=phi, color=f"C{i}")
-            ax.set_xlabel("Phi (radians)")
-            ax.set_ylabel("Counts")
-            ax.set_title(f"Distribution of {phi}")
-            ax.legend()
-            fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1, hspace=0.3, wspace=0.3)
-        pdf.savefig()
-        plt.close()
-
-
     def plot_dphis(self, pdf: PdfPages) -> None:
         print("Plotting delta phi distributions")
         pls_phis = [
-            "pLS_phi_p_deltaPhi",
-            "pLS_phi_m_deltaPhi",
             "pLS_phi",
             "pLS_phi_position",
-            # "pLS_phi_corr_p",
-            # "pLS_phi_corr_p2",
-            # "pLS_phi_corr_m",
         ]
         # 2D diff
         for i, pls_phi in enumerate(pls_phis):
@@ -497,13 +450,8 @@ class PhiPlotter:
 
     def plot_dphi_vs_pt(self, pdf: PdfPages) -> None:
         pls_phis = [
-            "pLS_phi_p_deltaPhi",
-            "pLS_phi_m_deltaPhi",
             "pLS_phi",
             "pLS_phi_position",
-            # "pLS_phi_corr_p2",
-            # "pLS_phi_corr_p",
-            # "pLS_phi_corr_m",
         ]
         for pls_phi in pls_phis:
             fig, ax = plt.subplots(figsize=(8, 8))
@@ -558,46 +506,6 @@ class PhiPlotter:
         plt.close()
 
 
-    def plot_dphi_vs_pt_regions(self, pdf: PdfPages) -> None:
-        pls_phis = [
-            "pLS_phi_p_deltaPhi",
-            "pLS_phi_m_deltaPhi",
-            "pLS_phi",
-        ]
-        pad = 0.01
-        bins = [
-            np.arange(0, 1.35, 0.01),
-            np.arange(-0.25, 0.25, 0.005)
-        ]
-        for pls_phi in pls_phis:
-            for charge in [-1, 1]:
-                for eta_lo, eta_hi in [
-                    (0.0, 2.5),
-                    (0.0, 1.0),
-                    (2.0, 2.5),
-                ]:
-                    mask = (self.df["pLS_charge"] == charge) \
-                        & (np.abs(self.df["pLS_eta"]) >= eta_lo) \
-                        & (np.abs(self.df["pLS_eta"]) < eta_hi)
-                    print(f"Plotting for {charge=}, {eta_lo=}, {eta_hi=}, {np.sum(mask)} events")
-                    x = 1/self.df["t5_pt"][mask]
-                    y = normalize_angle(self.df["t5_phi"][mask] - self.df[pls_phi][mask])
-                    fig, ax = plt.subplots(figsize=(8, 8))
-                    _, _, _, im = ax.hist2d(x, y,
-                                            bins=bins,
-                                            cmin=0.5,
-                                            cmap="hsv",
-                                            )
-                    ax.set_xlabel("T5 pT")
-                    ax.set_ylabel(f"T5 phi - {pls_phi} (radians)")
-                    ax.set_title(f"{pls_phi}, {eta_lo} < eta < {eta_hi}, q={charge}")
-                    ax.text(1.08, 1.01, f"Pairs", transform=ax.transAxes)
-                    fig.colorbar(im, ax=ax, pad=pad)
-                    fig.subplots_adjust(left=0.15, right=0.99, top=0.95, bottom=0.08)
-                    pdf.savefig()
-                    plt.close()
-
-
     def plot_publicity_dphi(self, pdf: PdfPages) -> None:
         print("Plotting delta phi distributions")
         args = {
@@ -609,7 +517,6 @@ class PhiPlotter:
         }
         label = {
             "pLS_phi_common": r"$\phi^{T5}_{r=36} - \phi^{pLS}_{r=36}$",
-            "pLS_phi_m_deltaPhi": r"$\phi^{T5}_{r} - \phi^{pLS}_{r}$",
             "pLS_phi": r"$\phi^{T5}_{r} - \phi^{pLS}_{p}$",
         }
         fig, ax = plt.subplots(figsize=(8, 8))
