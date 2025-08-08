@@ -10,6 +10,7 @@ from matplotlib import colors
 from matplotlib.backends.backend_pdf import PdfPages
 mpl.rcParams["font.size"] = 16
 
+ETA_RESTRICTION = 0.5
 INVALID_SIM_IDX = -1
 BRANCHES = [
     "t5_pt",
@@ -56,7 +57,7 @@ PARQUET_NAME = "phis.parquet"
 
 def options() -> argparse.Namespace:
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--ntuple", type=str, default="/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiChargeXYZ.root",
+    parser.add_argument("--ntuple", type=str, default="/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiChargeXYZ_10events.root",
                         help="Input LSTNtuple ROOT file")
     parser.add_argument("--parquet", type=str, default=PARQUET_NAME,
                         help="Path to save the intermediate parquet file")
@@ -467,7 +468,7 @@ class PhiPlotter:
         bins = np.arange(-0.25, 0.25, 0.002)
         fig, ax = plt.subplots(figsize=(8, 8))
         for pls_phi in pls_phis:
-            mask = np.abs(self.df["t5_eta"]) < 0.5
+            mask = np.abs(self.df["t5_eta"]) < ETA_RESTRICTION
             ax.hist(normalize_angle(self.df["t5_phi"] - self.df[pls_phi])[mask],
                     bins=bins,
                     label=pls_phi,
@@ -498,7 +499,7 @@ class PhiPlotter:
 
             x = 1 / self.df["t5_pt"]
             y = normalize_angle(self.df["t5_phi"] - self.df[pls_phi])
-            mask = np.abs(self.df["t5_eta"]) < 0.5
+            mask = np.abs(self.df["t5_eta"]) < ETA_RESTRICTION
 
             _, _, _, im = ax.hist2d(x[mask],
                                     y[mask],
