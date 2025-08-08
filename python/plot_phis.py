@@ -6,6 +6,7 @@ import uproot
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import colors
 from matplotlib.backends.backend_pdf import PdfPages
 mpl.rcParams["font.size"] = 16
 
@@ -19,6 +20,10 @@ BRANCHES = [
     "t5_t3_idx1",
     "t5_t3_0_r",
     "t5_t3_2_r",
+    "t5_t3_0_x",
+    "t5_t3_2_x",
+    "t5_t3_0_y",
+    "t5_t3_2_y",
     "t5_t3_0_phi",
     "t5_t3_1_phi",
     "t5_t3_2_phi",
@@ -33,10 +38,16 @@ BRANCHES = [
     "t5_t3_5_layer",
     "t3_centerX",
     "t3_centerY",
-    "pLS_phi",
     "pLS_ptIn",
     "pLS_eta",
+    "pLS_phi",
     "pLS_deltaPhi",
+    "pLS_x",
+    "pLS_y",
+    "pLS_z",
+    "pLS_px",
+    "pLS_py",
+    "pLS_pz",
     "pLS_charge",
     "pLS_matched_simIdx",
 ]
@@ -45,7 +56,7 @@ PARQUET_NAME = "phis.parquet"
 
 def options() -> argparse.Namespace:
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--ntuple", type=str, default="/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiCharge.root",
+    parser.add_argument("--ntuple", type=str, default="/Users/alexandertuna/Downloads/cms/gavin_tc_dnn/data/pls_t5_embed_0p75_pLSdeltaPhiChargeXYZ.root",
                         help="Input LSTNtuple ROOT file")
     parser.add_argument("--parquet", type=str, default=PARQUET_NAME,
                         help="Path to save the intermediate parquet file")
@@ -67,9 +78,9 @@ def main() -> None:
         plotter.load_data(args.ntuple)
         plotter.debug_print_phi_matching()
         plotter.make_track_pair_dataframe()
-        # plotter.write_df_to_file(args.parquet)
-    # plotter.load_intermediate_data(args.parquet)
-    # plotter.plot(args.pdf)
+        plotter.write_df_to_file(args.parquet)
+    plotter.load_intermediate_data(args.parquet)
+    plotter.plot(args.pdf)
 
 
 class PhiPlotter:
@@ -103,6 +114,11 @@ class PhiPlotter:
             self.data[f"{trk}_simIdx"] = ak.firsts(self.data[f"{trk}_matched_simIdx"], axis=-1)
             self.data[f"{trk}_simIdx"] = ak.fill_none(self.data[f"{trk}_simIdx"], INVALID_SIM_IDX)
 
+        # Construct pLS r and phi_reco
+        self.data["pLS_r"] = np.sqrt(self.data["pLS_x"]**2 + self.data["pLS_y"]**2)
+        self.data["pLS_phi_reco"] = np.arctan2(self.data["pLS_py"], self.data["pLS_px"])
+        self.data["pLS_phi_position"] = np.arctan2(self.data["pLS_y"], self.data["pLS_x"])
+
         # Reconstruct T5 hit phi and r
         idx0s = self.data["t5_t3_idx0"]
         t5_0_phis = self.data["t5_t3_0_phi"][:][idx0s]
@@ -117,6 +133,62 @@ class PhiPlotter:
             raise ValueError("Mismatch in t5_phi and derived t5_phi")
 
         # Reconstruct T5 charge
+        # https://github.com/cms-sw/cmssw/blob/master/RecoTracker/LSTCore/src/alpaka/Quintuplet.h
+        # g = triplets.centerX()[innerTripletIndex];
+        # f = triplets.centerY()[innerTripletIndex];
+        x_center = self.data["t3_centerX"][idx0s]
+        y_center = self.data["t3_centerY"][idx0s]
+        x1 = self.data["t5_t3_0_x"][:][idx0s]
+        y1 = self.data["t5_t3_0_y"][:][idx0s]
+        x3 = self.data["t5_t3_2_x"][:][idx0s]
+        y3 = self.data["t5_t3_2_y"][:][idx0s]
+        slope3c = (y3 - y_center) / (x3 - x_center)
+        slope1c = (y1 - y_center) / (x1 - x_center)
+
+        # Vectorized logic for charge determination
+        charge_p = ak.ones_like(x_center)
+        charge_n = -ak.ones_like(x_center)
+        mask_y3 = (y3 - y_center) > 0
+        mask_y1 = (y1 - y_center) > 0
+        mask_x3 = (x3 - x_center) > 0
+        mask_x1 = (x1 - x_center) > 0
+        mask_s3 = slope3c > 0
+        mask_s1 = slope1c > 0
+        mask_ss = slope3c > slope1c
+        # This almost works, but ak arrays are immutable
+        # charge[(mask_y3 & mask_y1) & mask_s1 & ~mask_s3] = -1
+        # charge[(mask_y3 & mask_y1) & ~mask_s1 & mask_s3] = 1
+        # charge[(mask_y3 & mask_y1) & (mask_s1 == mask_s3) & mask_ss] = -1
+        # charge[(mask_y3 & mask_y1) & (mask_s1 == mask_s3) & ~mask_ss] = 1
+        # charge[(~mask_y3 & ~mask_y1) & ~mask_s1 & mask_s3] = 1
+        # charge[(~mask_y3 & ~mask_y1) & mask_s1 & ~mask_s3] = -1
+        # charge[(~mask_y3 & ~mask_y1) & (mask_s1 == mask_s3) & mask_ss] = -1
+        # charge[(~mask_y3 & ~mask_y1) & (mask_s1 == mask_s3) & ~mask_ss] = 1
+        # charge[(~mask_y3 & mask_y1) & mask_x3 & mask_x1] = 1
+        # charge[(~mask_y3 & mask_y1) & ~mask_x3 & ~mask_x1] = -1
+        # charge[(mask_y3 & ~mask_y1) & mask_x3 & mask_x1] = -1
+        # charge[(mask_y3 & ~mask_y1) & ~mask_x3 & ~mask_x1] = 1
+        mask_p = (
+            ((mask_y3 & mask_y1) & ~mask_s1 & mask_s3) |
+            ((mask_y3 & mask_y1) & (mask_s1 == mask_s3) & ~mask_ss) |
+            ((~mask_y3 & ~mask_y1) & ~mask_s1 & mask_s3) |
+            ((~mask_y3 & ~mask_y1) & (mask_s1 == mask_s3) & ~mask_ss) |
+            ((~mask_y3 & mask_y1) & mask_x3 & mask_x1) |
+            ((mask_y3 & ~mask_y1) & ~mask_x3 & ~mask_x1)
+        )
+        mask_n = (
+            ((mask_y3 & mask_y1) & mask_s1 & ~mask_s3) |
+            ((mask_y3 & mask_y1) & (mask_s1 == mask_s3) & mask_ss) |
+            ((~mask_y3 & ~mask_y1) & mask_s1 & ~mask_s3) |
+            ((~mask_y3 & ~mask_y1) & (mask_s1 == mask_s3) & mask_ss) |
+            ((~mask_y3 & mask_y1) & ~mask_x3 & ~mask_x1) |
+            ((mask_y3 & ~mask_y1) & mask_x3 & mask_x1)
+        )
+        if ak.any(mask_p & mask_n) or ak.any(~mask_p & ~mask_n):
+            overlap = ak.flatten(mask_p & mask_n)
+            print(f"Warning: Overlapping masks detected in charge determination: {np.sum(overlap)}")
+            raise ValueError("Charge determination resulted in overlapping masks")
+        self.data["t5_charge"] = charge_p * mask_p + charge_n * mask_n
 
 
     def make_track_pair_dataframe(self) -> None:
@@ -153,12 +225,12 @@ class PhiPlotter:
         #   it's roughly delta = dr/173/pt*charge
         # t5_t3_0_r, t5_t3_1_r
         # pixel barrel r_max is about 15
-        self.df["pLS_r"] = 15.0
-        self.df["t5_r"] = 36.0 # , 51.0
+        # self.df["pLS_r"] = 15.0
+        # self.df["t5_r"] = 36.0 # , 51.0
         self.df["dphi_prop"] = (self.df["t5_r"] - self.df["pLS_r"]) / 10.0 / 173.0 / self.df["pLS_ptIn"] * self.df["pLS_charge"]
-        self.df["pLS_phi_corr_m"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] - self.df["dphi_prop"])
-        self.df["pLS_phi_corr_p"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + self.df["dphi_prop"])
-        self.df["pLS_phi_corr_p2"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + 0.5*self.df["dphi_prop"])
+        # self.df["pLS_phi_corr_m"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] - self.df["dphi_prop"])
+        # self.df["pLS_phi_corr_p"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + self.df["dphi_prop"])
+        # self.df["pLS_phi_corr_p2"] = normalize_angle(self.df["pLS_phi_m_deltaPhi"] + 0.5*self.df["dphi_prop"])
 
 
 
@@ -170,7 +242,11 @@ class PhiPlotter:
             "t5_eta": self.data["t5_eta"][i_ev][t5_idx],
             "t5_phi": self.data["t5_phi"][i_ev][t5_idx],
             "t5_r": self.data["t5_r"][i_ev][t5_idx],
+            "t5_charge": self.data["t5_charge"][i_ev][t5_idx],
             "pLS_phi": self.data["pLS_phi"][i_ev][pls_idx],
+            "pLS_phi_reco": self.data["pLS_phi_reco"][i_ev][pls_idx],
+            "pLS_phi_position": self.data["pLS_phi_position"][i_ev][pls_idx],
+            "pLS_r": self.data["pLS_r"][i_ev][pls_idx],
             "pLS_ptIn": self.data["pLS_ptIn"][i_ev][pls_idx],
             "pLS_eta": self.data["pLS_eta"][i_ev][pls_idx],
             "pLS_charge": self.data["pLS_charge"][i_ev][pls_idx],
@@ -228,6 +304,9 @@ class PhiPlotter:
         print(f"Plotting results to {pdf_path}")
         with PdfPages(pdf_path) as pdf:
             self.plot_pt_eta(pdf)
+            self.plot_charge(pdf)
+            self.plot_eta_vs_r(pdf)
+            self.plot_pls_phi_vs_phi(pdf)
             #self.plot_phis(pdf)
             self.plot_dphis(pdf)
             self.plot_dphi_vs_pt(pdf)
@@ -254,6 +333,88 @@ class PhiPlotter:
             if is_pt:
                 ax.semilogy()
             fig.subplots_adjust(left=0.1, right=0.98, top=0.98, bottom=0.1, hspace=0.2, wspace=0.4)
+        pdf.savefig()
+        plt.close()
+
+
+    def plot_charge(self, pdf: PdfPages) -> None:
+        print("Plotting charge distributions")
+        fig, ax = plt.subplots(figsize=(8, 8))
+        bins = np.arange(-2.5, 3.5, 1)
+        _, _, _, im = ax.hist2d(self.df["t5_charge"],
+                                self.df["pLS_charge"],
+                                bins=bins,
+                                cmin=0.5,
+                                # cmap="Set1",
+                                cmap="rainbow",
+                                norm=colors.LogNorm(vmin=0.5),
+                                )
+        ax.set_xlabel("T5 Charge")
+        ax.set_ylabel("pLS Charge")
+        ax.text(1.02, 1.01, f"Pairs", transform=ax.transAxes)
+        fig.colorbar(im, ax=ax, pad=0.01)
+        fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
+        pdf.savefig()
+        plt.close()
+
+
+    def plot_eta_vs_r(self, pdf: PdfPages) -> None:
+        print("Plotting eta vs r distributions")
+        for track in ["t5", "pLS"]:
+            fig, ax = plt.subplots(figsize=(8, 8))
+            bins = [
+                np.arange(-2.6, 2.7, 0.02),
+                np.arange(0, 60, 0.5),
+            ]
+            _, _, _, im = ax.hist2d(self.df[f"{track}_eta"],
+                                    self.df[f"{track}_r"],
+                                    bins=bins,
+                                    cmin=0.5,
+                                    # cmap="Set1",
+                                    cmap="rainbow",
+                                    # norm=colors.LogNorm(vmin=0.5),
+                                    )
+            ax.set_xlabel(f"{track} eta")
+            ax.set_ylabel(f"{track} R [cm]")
+            fig.colorbar(im, ax=ax, pad=0.01)
+            fig.subplots_adjust(left=0.1, right=0.95, top=0.96, bottom=0.1)
+            pdf.savefig()
+            plt.close()
+
+
+    def plot_pls_phi_vs_phi(self, pdf: PdfPages) -> None:
+        print("Plotting pls phi distributions")
+        bins = np.arange(-3.2, 3.25, 0.05)
+
+        # First comparison: phi vs reco phi
+        fig, ax = plt.subplots(figsize=(8, 8))
+        _, _, _, im = ax.hist2d(self.df[f"pLS_phi"],
+                                self.df[f"pLS_phi_reco"],
+                                bins=bins,
+                                cmin=0.5,
+                                cmap="rainbow",
+                                # norm=colors.LogNorm(vmin=0.5),
+                                )
+        ax.set_xlabel(f"pLS phi")
+        ax.set_ylabel(f"pLS phi reco")
+        fig.colorbar(im, ax=ax, pad=0.01)
+        fig.subplots_adjust(left=0.1, right=0.95, top=0.96, bottom=0.1)
+        pdf.savefig()
+        plt.close()
+
+        # Second comparison: phi-dphi vs position phi
+        fig, ax = plt.subplots(figsize=(8, 8))
+        _, _, _, im = ax.hist2d(normalize_angle(self.df["pLS_phi"] + self.df["pLS_deltaPhi"]),
+                                self.df[f"pLS_phi_position"],
+                                bins=bins,
+                                cmin=0.5,
+                                cmap="rainbow",
+                                # norm=colors.LogNorm(vmin=0.5),
+                                )
+        ax.set_xlabel(f"pLS phi + dphi")
+        ax.set_ylabel(f"pLS phi position")
+        fig.colorbar(im, ax=ax, pad=0.01)
+        fig.subplots_adjust(left=0.1, right=0.95, top=0.96, bottom=0.1)
         pdf.savefig()
         plt.close()
 
@@ -285,9 +446,10 @@ class PhiPlotter:
             "pLS_phi_p_deltaPhi",
             "pLS_phi_m_deltaPhi",
             "pLS_phi",
-            "pLS_phi_corr_p",
-            "pLS_phi_corr_p2",
-            "pLS_phi_corr_m",
+            "pLS_phi_position",
+            # "pLS_phi_corr_p",
+            # "pLS_phi_corr_p2",
+            # "pLS_phi_corr_m",
         ]
         # 2D diff
         for i, pls_phi in enumerate(pls_phis):
@@ -327,9 +489,9 @@ class PhiPlotter:
             "pLS_phi_p_deltaPhi",
             "pLS_phi_m_deltaPhi",
             "pLS_phi",
-            "pLS_phi_corr_p2",
-            "pLS_phi_corr_p",
-            "pLS_phi_corr_m",
+            # "pLS_phi_corr_p2",
+            # "pLS_phi_corr_p",
+            # "pLS_phi_corr_m",
         ]
         for pls_phi in pls_phis:
             fig, ax = plt.subplots(figsize=(8, 8))
