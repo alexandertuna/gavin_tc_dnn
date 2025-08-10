@@ -79,8 +79,9 @@ def main():
     plotter.check_math()
     plotter.do_tsne()
     with PdfPages(plotter.pdf_name) as pdf:
-        plotter.plot1d(pdf)
-        plotter.plot2d(pdf)
+        # plotter.plot1d_pairs(pdf)
+        # plotter.plot2d_pairs(pdf)
+        plotter.plot2d_singles(pdf)
 
 
 class PCAPlotter:
@@ -118,6 +119,10 @@ class PCAPlotter:
         self.tsne = tsne
         self.quickplot = quickplot
         self.draw_envelope = draw_envelope
+
+        self.cmap = "hot"
+        self.cmin = 0.5
+        self.pad = 0.01
 
 
     def load_data(self):
@@ -440,7 +445,7 @@ class PCAPlotter:
             tsne_pls = tsne.fit_transform(self.embedded_pls)
 
 
-    def plot1d(self, pdf: PdfPages):
+    def plot1d_pairs(self, pdf: PdfPages):
 
         print("Plotting 1D distributions")
         # self.x_left_test
@@ -503,16 +508,9 @@ class PCAPlotter:
                 plt.close()
 
 
-
-
-        pass
-
-    def plot2d(self, pdf: PdfPages):
+    def plot2d_pairs(self, pdf: PdfPages):
 
         # plot options
-        self.cmap = "hot"
-        self.cmin = 0.5
-        self.pad = 0.01
         bins = 100
 
         print("Plotting!")
@@ -525,6 +523,7 @@ class PCAPlotter:
         for comparison in ["t5t5",
                             "plspls",
                             ]:
+            break
 
             if comparison == "t5t5":
                 this_y = self.y_t5_test
@@ -600,6 +599,7 @@ class PCAPlotter:
         print("Plotting PCA components")
         fig, ax = plt.subplots(figsize=(8, 8))
         for dim in range(self.n_pca):
+            bins = 100
             ax.hist(self.proj[:, dim], bins=bins, label=f"PCA Component {dim}",
                     histtype="step", lw=2, color=f"C{dim}")
         ax.set_xlabel("Value in PCA embedding")
@@ -626,7 +626,8 @@ class PCAPlotter:
         pdf.savefig()
         plt.close()
 
-        return
+
+    def plot2d_singles(self, pdf: PdfPages):
 
         # feature correlation check
         for dim in range(self.n_pca):
@@ -691,6 +692,7 @@ class PCAPlotter:
 
 
         # sample checks
+        bins = 100
         for (proj_data, title) in [(self.proj[self.t5s], "PCA Projection: T5s"),
                                     (self.proj[self.pls], "PCA Projection: PLSs"),
                                     (self.proj, "PCA Projection: T5s and PLSs"),
@@ -698,7 +700,12 @@ class PCAPlotter:
             print(f"Plotting {title}")
             for norm in [None, colors.LogNorm()]:
                 fig, ax = plt.subplots(figsize=(8, 8))
-                _, _, _, im = ax.hist2d(self.proj_data[:, 0], self.proj_data[:, 1], bins=bins, cmap=self.cmap, cmin=self.cmin, norm=norm)
+                _, _, _, im = ax.hist2d(proj_data[:, 0],
+                                        proj_data[:, 1],
+                                        bins=bins,
+                                        cmap=self.cmap,
+                                        cmin=self.cmin,
+                                        norm=norm)
                 ax.set_xlabel("PCA Component 0")
                 ax.set_ylabel("PCA Component 1")
                 ax.set_title(title)
