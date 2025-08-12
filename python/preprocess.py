@@ -26,6 +26,7 @@ k2Rinv1GeVf = (2.99792458e-3 * 3.8) / 2
 # DELTA_R2_CUT = 0.02
 ETA_MAX = 2.5
 ETA_MAX_PLS = 4.0
+PHI_MAX = np.pi
 
 BONUS_FEATURES = 2
 
@@ -198,6 +199,8 @@ class Preprocessor:
                  PAIRS_T5PLS,
                  PAIRS_PLSPLS,
                  use_phi_projection,
+                 use_phi_plus_pi,
+                 use_pls_deltaphi,
                  upweight_displaced,
                  delta_r2_cut,
                  ):
@@ -212,10 +215,14 @@ class Preprocessor:
         self.PAIRS_PLSPLS = PAIRS_PLSPLS
         self.root_path = root_path
         self.use_phi_projection = use_phi_projection
+        self.use_phi_plus_pi = use_phi_plus_pi
+        self.use_pls_deltaphi = use_pls_deltaphi
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
         print(f"Using projected phi: {self.use_phi_projection}")
+        print(f"Using (phi, phi+pi) for features: {self.use_phi_plus_pi}")
+        print(f"Using pLS deltaPhi: {self.use_pls_deltaphi}")
         print(f"Upweighting displaced T5s: {self.upweight_displaced}")
 
         print("Getting T5 features")
@@ -568,8 +575,8 @@ class Preprocessor:
 
                 f = [
                     eta1 / ETA_MAX,
-                    np.cos(phi),
-                    np.sin(phi),
+                    np.cos(phi) if not self.use_phi_plus_pi else phi / PHI_MAX,
+                    np.sin(phi) if not self.use_phi_plus_pi else normalize_angle(phi + np.pi) / PHI_MAX,
                     z1 / z_max,
                     r1 / r_max,
 
@@ -641,7 +648,6 @@ class Preprocessor:
 
         KEEP_FRAC_PLS = 0.40
         print(f"\nBuilding pLS features …")
-        print("Using position-based phi for pLS features")
 
         n_events = np.shape(branches['pLS_eta'])[0]
         pLS_features_per_event    = []
@@ -676,16 +682,16 @@ class Preprocessor:
                 ptIn = branches['pLS_ptIn'][ev][i]
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
-                if self.use_phi_projection:
-                    deltaPhi = branches['pLS_deltaPhi'][ev][i]
-                    phi = normalize_angle(phi - deltaPhi)
+                # if self.use_phi_projection:
+                #     deltaPhi = branches['pLS_deltaPhi'][ev][i]
+                #     phi = normalize_angle(phi - deltaPhi)
 
                 # ――― build feature vector -------------------------------------------
                 f = [
                     eta/4.0,
                     etaErr/.00139,
-                    np.cos(phi),
-                    np.sin(phi),
+                    np.cos(phi) if not self.use_phi_plus_pi else phi / PHI_MAX,
+                    np.sin(phi) if not self.use_phi_plus_pi else normalize_angle(phi + np.pi) / PHI_MAX,
                     1.0 / ptIn,
                     np.log10(ptErr),
                     isQuad,

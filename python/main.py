@@ -39,6 +39,10 @@ def options():
                         help="Delta R^2 cut for feature selection")
     parser.add_argument("--use_phi_projection", action="store_true",
                         help="Flag to use position-based phi for PLS features")
+    parser.add_argument("--use_phi_plus_pi", action="store_true",
+                        help="Flag to use (phi, phi+pi) for features instead of (cosphi, sinphi)")
+    parser.add_argument("--use_pls_deltaphi", action="store_true",
+                        help="Flag to include pls deltaphi in features")
     parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
                         help="Path to the precomputed T5 features file")
     parser.add_argument("--features_pls", type=str, default="features_pls.pkl",
@@ -70,6 +74,8 @@ def main():
                              args.pairs_t5pls,
                              args.pairs_plspls,
                              use_phi_projection=args.use_phi_projection,
+                             use_phi_plus_pi=args.use_phi_plus_pi,
+                             use_pls_deltaphi=args.use_pls_deltaphi,
                              upweight_displaced=args.upweight_displaced,
                              delta_r2_cut=args.delta_r2_cut
                              )
