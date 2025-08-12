@@ -21,6 +21,7 @@ class Plotter:
             self.plot_t5t5_performance(pdf)
             self.plot_t5pls_performance(pdf)
             self.plot_loss_per_epoch(pdf)
+            self.plot_phi_comparison(pdf)
 
 
     def plot_loss_per_epoch(self, pdf: PdfPages):
@@ -311,3 +312,47 @@ class Plotter:
         print(f"pLS-T5 AUC (embedding) = {auc_pls:.4f}")
         print(f"pLS-T5 AUC (ΔR²)       = {auc_dr :.4f}")
 
+
+    def plot_phi_comparison(self, pdf: PdfPages):
+        print("Plotting phi comparison")
+        print(self.trainer.X_pls_test.shape)
+        print(self.trainer.X_t5raw_test.shape)
+        mask = self.trainer.y_pls_test == 0
+
+        # first plot: assume we're using cos, sin
+        t5_phi = np.arctan2(self.trainer.X_t5raw_test[:, 2], self.trainer.X_t5raw_test[:, 1])
+        pls_phi = np.arctan2(self.trainer.X_pls_test[:, 3], self.trainer.X_pls_test[:, 2])
+        pls_pt_inv = self.trainer.X_pls_test[:, 4]
+        dphi = pls_phi - t5_phi
+        dphi[dphi > np.pi] -= 2 * np.pi
+        dphi[dphi < -np.pi] += 2 * np.pi
+
+        # plot
+        fig, ax = plt.subplots(figsize=(8, 8))
+        _, _, _, im = ax.hist2d(pls_pt_inv[mask], dphi[mask], bins=100, cmin=0.5, cmap='rainbow')
+        ax.set_xlabel("pLS 1/pT [GeV]")
+        ax.set_ylabel("Duplicate pLS phi - T5 phi")
+        ax.set_title("On the assumption features are cos(phi), sin(phi)")
+        fig.colorbar(im, ax=ax, label="Pairs")
+        fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.94)
+        pdf.savefig()
+        plt.close()
+
+        # second plot: assume we're using phi, phi+pi
+        t5_phi = self.trainer.X_t5raw_test[:, 1]
+        pls_phi = self.trainer.X_pls_test[:, 2]
+        pls_pt_inv = self.trainer.X_pls_test[:, 4]
+        dphi = pls_phi - t5_phi
+        dphi[dphi > np.pi] -= 2 * np.pi
+        dphi[dphi < -np.pi] += 2 * np.pi
+
+        # plot
+        fig, ax = plt.subplots(figsize=(8, 8))
+        _, _, _, im = ax.hist2d(pls_pt_inv[mask], dphi[mask], bins=100, cmin=0.5, cmap='rainbow')
+        ax.set_xlabel("pLS 1/pT [GeV]")
+        ax.set_ylabel("Duplicate pLS phi - T5 phi")
+        ax.set_title("On the assumption features are phi, phi+pi")
+        fig.colorbar(im, ax=ax, label="Pairs")
+        fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.94)
+        pdf.savefig()
+        plt.close()
