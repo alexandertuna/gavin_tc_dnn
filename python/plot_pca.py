@@ -516,14 +516,14 @@ class PCAPlotter:
         print("Plotting!")
 
         dup, nodup = 0, 1
-        dims = range(-1, 6) # self.n_pca
+        dims = range(-1, self.n_pca)
         bins = {}
         bins["d"] = np.logspace(-3, 1, 101)
 
         for comparison in ["t5t5",
                             "plspls",
                             ]:
-            break
+            # break
 
             if comparison == "t5t5":
                 this_y = self.y_t5_test
