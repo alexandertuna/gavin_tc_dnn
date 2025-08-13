@@ -575,7 +575,7 @@ class PCAPlotter:
                         counts, xbins, ybins, im = ax.hist2d(x, y,
                                                                 bins=(bins["d"], 100),
                                                                 cmap=self.cmap, cmin=self.cmin)
-                        corr = np.corrcoef(x, y)[0, 1]
+                        corr = np.corrcoef(x, y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
 
                         if self.draw_envelope:
                             x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
