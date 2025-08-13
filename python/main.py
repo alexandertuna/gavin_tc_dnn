@@ -92,6 +92,7 @@ def main():
                       use_pls_deltaphi=args.use_pls_deltaphi,
                       # --------------------
                       bonus_features=processor.bonus_features,
+                      # --------------------
                       X_left_train=processor.X_left_train,
                       X_left_test=processor.X_left_test,
                       X_right_train=processor.X_right_train,
