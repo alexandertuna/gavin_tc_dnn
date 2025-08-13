@@ -196,6 +196,9 @@ class PCAPlotter:
             print(f"Loading model weights from {self.model_weights}")
             checkpoint = torch.load(self.model_weights)
             self.embed_t5.load_state_dict(checkpoint["embed_t5"])
+            if checkpoint["embed_pls"]["fc1.weight"].shape[1] == 11:
+                print("INFO: detected pls network has 11 inputs instead of 10")
+                self.embed_pls = EmbeddingNetpLS(input_dim=11)
             self.embed_pls.load_state_dict(checkpoint["embed_pls"])
         self.embed_t5.eval()
         self.embed_pls.eval()
@@ -866,7 +869,7 @@ def feature_name_pls(feature: int) -> str:
         return "log10(circleCenterR)"
 
     else:
-        raise ValueError(f"Unknown PLS feature index: {feature}")
+        return "FIX MEEEEEEE" # raise ValueError(f"Unknown PLS feature index: {feature}")
 
 def get_bounds_of_thing(x, y, xbins, lo=25, hi=75):
     percentile_lo = []
