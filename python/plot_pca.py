@@ -272,14 +272,14 @@ class PCAPlotter:
             self.x_t5 = np.concatenate((self.x_t5,
                                         eng_t5_eta.reshape(-1, 1),
                                         eng_t5_phi.reshape(-1, 1),
-                                        eng_t5_pt.reshape(-1, 1),
+                                        (1 / eng_t5_pt).reshape(-1, 1),
                                         eng_t5_max_disp.reshape(-1, 1),
                                         ), axis=1)
             self.x_pls = np.concatenate((self.x_pls,
                                          eng_pls_eta.reshape(-1, 1),
                                          eng_pls_phi.reshape(-1, 1),
                                          eng_pls_rinv.reshape(-1, 1),
-                                         eng_pls_pt.reshape(-1, 1),
+                                         (1 / eng_pls_pt).reshape(-1, 1),
                                          eng_pls_center_r.reshape(-1, 1),
                                          ), axis=1)
 
@@ -298,24 +298,24 @@ class PCAPlotter:
             # T5T5 (left)
             eta = self.x_left_test[:, 0] * 2.5
             phi = np.arctan2(self.x_left_test[:, 2], self.x_left_test[:, 1])
-            pt = 1.0 / ((self.x_left_test[:, 21] ** -1) * k2Rinv1GeVf * 2)
+            pt = (self.x_left_test[:, 21] ** -1) * k2Rinv1GeVf * 2
             max_disp = np.maximum(self.x_left_test[:, 26], self.x_left_test[:, 26] + self.x_left_test[:, 29])
             self.x_left_test = np.concatenate((self.x_left_test,
                                                eta.reshape(-1, 1),
                                                phi.reshape(-1, 1),
-                                               pt.reshape(-1, 1),
+                                               (1 / pt).reshape(-1, 1),
                                                max_disp.reshape(-1, 1),
                                                ), axis=1)
 
             # T5T5 (right)
             eta = self.x_right_test[:, 0] * 2.5
             phi = np.arctan2(self.x_right_test[:, 2], self.x_right_test[:, 1])
-            pt = 1.0 / ((self.x_right_test[:, 21] ** -1) * k2Rinv1GeVf * 2)
+            pt = (self.x_right_test[:, 21] ** -1) * k2Rinv1GeVf * 2
             max_disp = np.maximum(self.x_right_test[:, 26], self.x_right_test[:, 26] + self.x_right_test[:, 29])
             self.x_right_test = np.concatenate((self.x_right_test,
                                                 eta.reshape(-1, 1),
                                                 phi.reshape(-1, 1),
-                                                pt.reshape(-1, 1),
+                                                (1 / pt).reshape(-1, 1),
                                                 max_disp.reshape(-1, 1),
                                                 ), axis=1)
 
@@ -327,7 +327,7 @@ class PCAPlotter:
             self.x_t5_test = np.concatenate((self.x_t5_test,
                                         eta.reshape(-1, 1),
                                         phi.reshape(-1, 1),
-                                        pt.reshape(-1, 1),
+                                        (1 / pt).reshape(-1, 1),
                                         max_disp.reshape(-1, 1),
                                         ), axis=1)
 
@@ -340,7 +340,7 @@ class PCAPlotter:
                                          eta.reshape(-1, 1),
                                          phi.reshape(-1, 1),
                                          rinv.reshape(-1, 1),
-                                         pt.reshape(-1, 1),
+                                         (1 / pt).reshape(-1, 1),
                                          center_r.reshape(-1, 1),
                                          ), axis=1)
 
@@ -355,7 +355,7 @@ class PCAPlotter:
                                               eta.reshape(-1, 1),
                                               phi.reshape(-1, 1),
                                               rinv.reshape(-1, 1),
-                                              pt.reshape(-1, 1),
+                                              (1 / pt).reshape(-1, 1),
                                               center_r.reshape(-1, 1),
                                               ), axis=1)
 
@@ -369,7 +369,7 @@ class PCAPlotter:
                                                eta.reshape(-1, 1),
                                                phi.reshape(-1, 1),
                                                rinv.reshape(-1, 1),
-                                               pt.reshape(-1, 1),
+                                               (1 / pt).reshape(-1, 1),
                                                center_r.reshape(-1, 1),
                                               ), axis=1)
 
@@ -485,7 +485,7 @@ class PCAPlotter:
                 fig, ax = plt.subplots(figsize=(20, 8), ncols=3)
                 ax[0].hist(left[mask, features[obj_left][0]], bins=bins["eta"], label=f"{obj_left} eta")
                 ax[1].hist(left[mask, features[obj_left][1]], bins=bins["phi"], label=f"{obj_left} phi")
-                ax[2].hist(left[mask, features[obj_left][2]], bins=bins["pt"], label=f"{obj_left} pt")
+                ax[2].hist(left[mask, features[obj_left][2]] ** -1, bins=bins["pt"], label=f"{obj_left} pt")
                 ax[0].set_xlabel(f"{obj_left} left eta")
                 ax[1].set_xlabel(f"{obj_left} left phi")
                 ax[2].set_xlabel(f"{obj_left} left pt")
@@ -499,7 +499,7 @@ class PCAPlotter:
                 fig, ax = plt.subplots(figsize=(20, 8), ncols=3)
                 ax[0].hist(right[mask, features[obj_right][0]], bins=bins["eta"], label=f"{obj_right} eta")
                 ax[1].hist(right[mask, features[obj_right][1]], bins=bins["phi"], label=f"{obj_right} phi")
-                ax[2].hist(right[mask, features[obj_right][2]], bins=bins["pt"], label=f"{obj_right} pt")
+                ax[2].hist(right[mask, features[obj_right][2]] ** -1, bins=bins["pt"], label=f"{obj_right} pt")
                 ax[0].set_xlabel(f"{obj_right} right eta")
                 ax[1].set_xlabel(f"{obj_right} right phi")
                 ax[2].set_xlabel(f"{obj_right} right pt")
