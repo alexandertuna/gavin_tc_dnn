@@ -22,6 +22,7 @@ class Plotter:
             self.plot_t5pls_performance(pdf)
             self.plot_loss_per_epoch(pdf)
             self.plot_phi_comparison(pdf)
+            self.plot_features_of_pairs(pdf)
 
 
     def plot_loss_per_epoch(self, pdf: PdfPages):
@@ -356,3 +357,28 @@ class Plotter:
         fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.94)
         pdf.savefig()
         plt.close()
+
+
+    def plot_features_of_pairs(self, pdf: PdfPages):
+        print("Plotting features of pairs")
+
+        n_features, x_test = {}, {}
+
+        mask = self.trainer.y_pls_test == 0
+        _, n_features["pls"] = self.trainer.X_pls_test.shape
+        _, n_features["t5"] = self.trainer.X_t5raw_test.shape
+        x_test["pls"] = self.trainer.X_pls_test[mask]
+        x_test["t5"] = self.trainer.X_t5raw_test[mask]
+
+        for track in ["pls", "t5"]:
+            print(f"Track: {track}")
+            print(f"Number of features: {n_features[track]}")
+            print(f"Test data shape: {x_test[track].shape}")
+            for feature in range(n_features[track]):
+                fig, ax = plt.subplots(figsize=(8, 8))
+                ax.hist(x_test[track][:, feature], bins=100)
+                ax.set_xlabel(f"{track} feature {feature}")
+                ax.set_ylabel("Tracks")
+                ax.grid(alpha=0.3)
+                pdf.savefig()
+                plt.close()
