@@ -682,9 +682,8 @@ class Preprocessor:
                 ptIn = branches['pLS_ptIn'][ev][i]
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
-                # if self.use_phi_projection:
-                #     deltaPhi = branches['pLS_deltaPhi'][ev][i]
-                #     phi = normalize_angle(phi - deltaPhi)
+                if self.use_pls_deltaphi:
+                    deltaPhi = branches['pLS_deltaPhi'][ev][i]
 
                 # ――― build feature vector -------------------------------------------
                 f = [
@@ -698,12 +697,11 @@ class Preprocessor:
                     np.log10(circleCenterX),
                     np.log10(circleCenterY),
                     np.log10(circleRadius),
-                    # deltaPhi,
-
-                    # bonus features
-                    ev,
-                    i,
                 ]
+                if self.use_pls_deltaphi:
+                    f.append(deltaPhi)
+                # bonus features
+                f.extend([ev, i])
 
                 feat_evt.append(f)
                 eta_evt.append(eta)

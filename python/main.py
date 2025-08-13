@@ -87,27 +87,28 @@ def main():
         processor.speed_test()
 
     # ML training
-    trainer = Trainer(args.seed,
-                      args.emb_dim,
+    trainer = Trainer(seed=args.seed,
+                      emb_dim=args.emb_dim,
+                      use_pls_deltaphi=args.use_pls_deltaphi,
                       # --------------------
-                      processor.bonus_features,
-                      processor.X_left_train,
-                      processor.X_left_test,
-                      processor.X_right_train,
-                      processor.X_right_test,
-                      processor.y_t5_train,
-                      processor.y_t5_test,
-                      processor.w_t5_train,
-                      processor.w_t5_test,
+                      bonus_features=processor.bonus_features,
+                      X_left_train=processor.X_left_train,
+                      X_left_test=processor.X_left_test,
+                      X_right_train=processor.X_right_train,
+                      X_right_test=processor.X_right_test,
+                      y_t5_train=processor.y_t5_train,
+                      y_t5_test=processor.y_t5_test,
+                      w_t5_train=processor.w_t5_train,
+                      w_t5_test=processor.w_t5_test,
                       # --------------------
-                      processor.X_pls_train,
-                      processor.X_pls_test,
-                      processor.X_t5raw_train,
-                      processor.X_t5raw_test,
-                      processor.y_pls_train,
-                      processor.y_pls_test,
-                      processor.w_pls_train,
-                      processor.w_pls_test,
+                      X_pls_train=processor.X_pls_train,
+                      X_pls_test=processor.X_pls_test,
+                      X_t5raw_train=processor.X_t5raw_train,
+                      X_t5raw_test=processor.X_t5raw_test,
+                      y_pls_train=processor.y_pls_train,
+                      y_pls_test=processor.y_pls_test,
+                      w_pls_train=processor.w_pls_train,
+                      w_pls_test=processor.w_pls_test,
                       )
 
     if not args.load_model:

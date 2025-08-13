@@ -23,6 +23,7 @@ class Trainer:
     def __init__(self,
                  seed: int,
                  emb_dim: int,
+                 use_pls_deltaphi: bool,
                  bonus_features,
                  # ------------
                  X_left_train,
@@ -95,8 +96,9 @@ class Trainer:
 
         # instantiate and send to GPU/CPU
         print("Creating embedding networks ...")
+        pls_input_dim = 11 if use_pls_deltaphi else 10
         self.embed_t5 = EmbeddingNetT5(emb_dim=emb_dim).to(DEVICE)
-        self.embed_pls = EmbeddingNetpLS(emb_dim=emb_dim).to(DEVICE)
+        self.embed_pls = EmbeddingNetpLS(emb_dim=emb_dim, input_dim=pls_input_dim).to(DEVICE)
 
         # joint optimizer over both nets
         print("Creating optimizer ...")
