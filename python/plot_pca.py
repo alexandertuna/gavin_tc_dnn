@@ -864,7 +864,7 @@ def feature_name_pls(feature: int) -> str:
     elif feature == 12:
         return "1 / R"
     elif feature == 13:
-        return "pT"
+        return "1 / pT"
     elif feature == 14:
         return "log10(circleCenterR)"
 
