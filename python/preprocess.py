@@ -201,6 +201,7 @@ class Preprocessor:
                  use_phi_projection,
                  use_phi_plus_pi,
                  use_pls_deltaphi,
+                 use_no_phi,
                  upweight_displaced,
                  delta_r2_cut,
                  ):
@@ -217,6 +218,7 @@ class Preprocessor:
         self.use_phi_projection = use_phi_projection
         self.use_phi_plus_pi = use_phi_plus_pi
         self.use_pls_deltaphi = use_pls_deltaphi
+        self.use_no_phi = use_no_phi
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
@@ -611,6 +613,8 @@ class Preprocessor:
                     ev,
                     i,
                 ]
+                if self.use_no_phi:
+                    f[1] = f[2] = 0.0
                 feat_evt.append(f)
                 eta_evt.append(eta1)
                 disp_evt.append(branches['t5_sim_vxy'][ev][i])
@@ -700,6 +704,8 @@ class Preprocessor:
                 ]
                 if self.use_pls_deltaphi:
                     f.append(deltaPhi)
+                if self.use_no_phi:
+                    f[2] = f[3] = 0.0
                 # bonus features
                 f.extend([ev, i])
 

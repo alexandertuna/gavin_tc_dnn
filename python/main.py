@@ -43,6 +43,10 @@ def options():
                         help="Flag to use (phi, phi+pi) for features instead of (cosphi, sinphi)")
     parser.add_argument("--use_pls_deltaphi", action="store_true",
                         help="Flag to include pls deltaphi in features")
+    parser.add_argument("--use_scheduler", action="store_true",
+                        help="Flag to use learning rate scheduler")
+    parser.add_argument("--use_no_phi", action="store_true",
+                        help="Flag to exclude phi from features")
     parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
                         help="Path to the precomputed T5 features file")
     parser.add_argument("--features_pls", type=str, default="features_pls.pkl",
@@ -76,6 +80,7 @@ def main():
                              use_phi_projection=args.use_phi_projection,
                              use_phi_plus_pi=args.use_phi_plus_pi,
                              use_pls_deltaphi=args.use_pls_deltaphi,
+                             use_no_phi=args.use_no_phi,
                              upweight_displaced=args.upweight_displaced,
                              delta_r2_cut=args.delta_r2_cut
                              )
@@ -88,8 +93,10 @@ def main():
 
     # ML training
     trainer = Trainer(seed=args.seed,
+                      num_epochs=args.num_epochs,
                       emb_dim=args.emb_dim,
                       use_pls_deltaphi=args.use_pls_deltaphi,
+                      use_scheduler=args.use_scheduler,
                       # --------------------
                       bonus_features=processor.bonus_features,
                       # --------------------
@@ -113,7 +120,7 @@ def main():
                       )
 
     if not args.load_model:
-        trainer.train(num_epochs=args.num_epochs)
+        trainer.train()
         # trainer.print_thresholds()
         # trainer.print_weights_biases()
         trainer.save(model_path)

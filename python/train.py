@@ -22,8 +22,10 @@ class Trainer:
 
     def __init__(self,
                  seed: int,
+                 num_epochs: int,
                  emb_dim: int,
                  use_pls_deltaphi: bool,
+                 use_scheduler: bool,
                  bonus_features,
                  # ------------
                  X_left_train,
@@ -48,6 +50,9 @@ class Trainer:
         if seed is not None:
             torch.manual_seed(seed)
             os.environ["PYTHONHASHSEED"] = str(seed)
+
+        self.num_epochs = num_epochs
+        self.use_scheduler = use_scheduler
 
         def remove_bonus_features(X):
             return X[:, :-bonus_features] if bonus_features > 0 else X
@@ -107,6 +112,22 @@ class Trainer:
             lr=0.0025
         )
 
+        # create scheduler (optional)
+        n_steps = min(len(self.train_t5_loader), len(self.train_pls_loader))
+        print(f"Settings: train for {self.num_epochs} epochs with {n_steps} steps per epoch")
+        if self.use_scheduler:
+            self.scheduler = optim.lr_scheduler.OneCycleLR(
+                self.optimizer,
+                max_lr=0.0025,
+                total_steps=self.num_epochs * n_steps,
+                pct_start=0.1,
+                anneal_strategy='cos',
+                div_factor=10,
+                final_div_factor=1e3,
+            )
+        else:
+            self.scheduler = None
+
 
     def set_seed(self, seed: int):
         torch.manual_seed(seed)
@@ -115,12 +136,12 @@ class Trainer:
         os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-    def train(self, num_epochs: int = 200):
+    def train(self):
         print(time.strftime("Time: %Y-%m-%d %H:%M:%S", time.localtime()))
         self.losses_t5t5 = []
         self.losses_t5pls = []
 
-        for epoch in range(1, num_epochs+1):
+        for epoch in range(1, self.num_epochs+1):
             self.embed_t5.train(); self.embed_pls.train()
             total_loss = 0.0
             total_t5   = 0.0
@@ -149,6 +170,8 @@ class Trainer:
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+                if self.use_scheduler:
+                    self.scheduler.step()
 
                 total_loss += loss.item()
                 total_t5  += loss0.item()
@@ -157,8 +180,9 @@ class Trainer:
             avg_loss   = total_loss / len(self.train_pls_loader)
             avg_t5     = total_t5   / len(self.train_t5_loader)
             avg_pls    = total_pls  / len(self.train_pls_loader)
-            print(f"Epoch {epoch}/{num_epochs}:  JointLoss={avg_loss:.4f}  "
-                f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}")
+            lr = self.optimizer.param_groups[0]['lr']
+            print(f"Epoch {epoch}/{self.num_epochs}:  JointLoss={avg_loss:.4f}  "
+                  f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}  LR={lr:.6f}")
             self.losses_t5t5.append(avg_t5)
             self.losses_t5pls.append(avg_pls)
 
