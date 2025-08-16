@@ -79,9 +79,10 @@ def main():
     plotter.check_math()
     plotter.do_tsne()
     with PdfPages(plotter.pdf_name) as pdf:
-        plotter.plot1d_pairs(pdf)
-        plotter.plot2d_pairs(pdf)
-        plotter.plot2d_singles(pdf)
+        # plotter.plot1d_pairs(pdf)
+        # plotter.plot2d_pairs(pdf)
+        plotter.plot2d_t5pls(pdf)
+        # plotter.plot2d_singles(pdf)
 
 
 class PCAPlotter:
@@ -167,14 +168,16 @@ class PCAPlotter:
         else:
             raise ValueError("Invalid dataset choice for PCA. Choose 'train' or 'test'.")
 
-        # T5-T5 and T5-PLS pairwise data
+        # T5-T5 pairwise data
         self.x_left_test = X_left_test[:, :-BONUS_FEATURES]
         self.x_right_test = X_right_test[:, :-BONUS_FEATURES]
         self.y_t5_test = y_t5_test
+        self.x_diff_test = (self.x_left_test - self.x_right_test)
+
+        # T5-PLS pairwise data
         self.x_pls_test = X_pls_test[:, :-BONUS_FEATURES]
         self.x_t5_test = X_t5raw_test[:, :-BONUS_FEATURES]
         self.y_pls_test = y_pls_test
-        self.x_diff_test = (self.x_left_test - self.x_right_test)
 
         # PLS-PLS pairwise data
         self.x_pls_left = X_pls_left[:, :-BONUS_FEATURES]
@@ -408,6 +411,8 @@ class PCAPlotter:
         self.proj_x_r = self.pca.transform(self.emb_x_r)
         self.proj_x_pls_l = self.pca.transform(self.emb_x_pls_l)
         self.proj_x_pls_r = self.pca.transform(self.emb_x_pls_r)
+        self.proj_x_t5 = self.pca.transform(self.emb_x_t5)
+        self.proj_x_pls = self.pca.transform(self.emb_x_pls)
 
 
     def check_math(self):
@@ -513,10 +518,7 @@ class PCAPlotter:
 
     def plot2d_pairs(self, pdf: PdfPages):
 
-        # plot options
-        bins = 100
-
-        print("Plotting!")
+        print("Plotting T5/T5 and PLS/PLS pairs!")
 
         dup, nodup = 0, 1
         dims = range(-1, self.n_pca)
@@ -628,6 +630,75 @@ class PCAPlotter:
         fig.subplots_adjust(right=0.98, left=0.03, bottom=0.03, top=0.97, wspace=0.3, hspace=0.3)
         pdf.savefig()
         plt.close()
+
+
+    def plot2d_t5pls(self, pdf: PdfPages):
+
+        # setup
+        dup, nodup = 0, 1
+        dims = range(-1, self.n_pca)
+        bins = {}
+        bins["d"] = np.logspace(-3, 1, 101)
+        comparison = "t5pls"
+
+        this_y = self.y_pls_test
+        this_dist = self.proj_x_t5 - self.proj_x_pls
+
+        feature_indices = [
+            (r"1 / $p_{T}$", 32, 13),
+            (r"eta", 30, 10),
+            (r"phi", 31, 11),
+        ]
+
+        for status in [dup, nodup]:
+
+            print(f"Plotting {comparison} pairs for status {status}")
+            mask = (this_y == status)
+            title = "duplicate" if status == dup else "non-duplicate"
+
+            for dim in dims:
+
+                if self.quickplot and dim > 1:
+                    break
+
+                # Draw page divider
+                fig, ax = plt.subplots(figsize=(8, 8))
+                ax.text(0.5, 0.5, f"{title}, PCA dim: {dim}", fontsize=20, ha='center', va='center')
+                ax.axis('off')
+                pdf.savefig()
+                plt.close()
+
+                print(f"Plotting PCA dim {dim} for {comparison} pairs")
+
+                # the distance to plot
+                dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else this_dist[:, dim]
+
+                # the features to plot
+                for (feat_name, i_t5, i_pls) in feature_indices:
+
+                    if self.quickplot and i_t5 > 1:
+                        break
+
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    feat_mask = mask # & (this_diff[:, feature] != 0)
+                    x = dist[feat_mask]
+                    y = self.x_t5_test[feat_mask, i_t5] - self.x_pls_test[feat_mask, i_pls]
+                    counts, xbins, ybins, im = ax.hist2d(x, y,
+                                                         bins=(bins["d"], 100),
+                                                         cmap=self.cmap, cmin=self.cmin)
+                    corr = np.corrcoef(x, y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
+                    xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
+                    ax.set_xlabel(f"Euclidean distance, {xlabel}")
+                    ax.set_ylabel(f"T5 - pLS: {feat_name}")
+                    ax.set_title(f"{comparison} pairs: {title}. Corr. = {corr:.2f}", fontsize=16)
+                    ax.tick_params(right=True, top=True, which="both", direction="in")
+                    ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
+                    ax.semilogx()
+                    fig.colorbar(im, ax=ax, pad=self.pad)
+                    fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
+                    pdf.savefig()
+                    plt.close()
+
 
 
     def plot2d_singles(self, pdf: PdfPages):
