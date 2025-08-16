@@ -80,7 +80,7 @@ def main():
     plotter.do_tsne()
     with PdfPages(plotter.pdf_name) as pdf:
         # plotter.plot1d_pairs(pdf)
-        # plotter.plot2d_pairs(pdf)
+        plotter.plot2d_pairs(pdf)
         plotter.plot2d_t5pls(pdf)
         # plotter.plot2d_singles(pdf)
 
@@ -523,10 +523,10 @@ class PCAPlotter:
         dup, nodup = 0, 1
         dims = range(-1, self.n_pca)
         bins = {}
-        bins["d"] = np.logspace(-3, 1, 101)
+        bins["d"] = np.logspace(-3, 0.9, 101)
 
         for comparison in ["t5t5",
-                            "plspls",
+                           "plspls",
                             ]:
             # break
 
@@ -544,10 +544,11 @@ class PCAPlotter:
                 print(f"Plotting {comparison} pairs for status {status}")
                 mask = (this_y == status)
                 title = "duplicate" if status == dup else "non-duplicate"
+                n_features = this_diff.shape[1]
 
                 for dim in dims:
 
-                    if self.quickplot and dim > 1:
+                    if self.quickplot and dim > 0:
                         break
 
                     # Draw page divider
@@ -561,11 +562,10 @@ class PCAPlotter:
                     print(f"Plotting PCA dim {dim} for {comparison} pairs")
 
                     # the distance to plot
-                    dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else this_dist[:, dim]
+                    dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else np.abs(this_dist[:, dim])
 
-                    for feature in range(this_diff.shape[1]):
-                    # for feature in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-                    # for feature in [0]:
+                    for feature in range(n_features):
+
                         if self.quickplot and feature > 2:
                             break
                         fig, ax = plt.subplots(figsize=(8, 8))
@@ -573,11 +573,13 @@ class PCAPlotter:
                         feat_name = feature_name(comparison, feature)
                         numer, denom = np.sum(mask & (this_diff[:, feature] == 0)), np.sum(mask)
                         excluded = f"{int(100*numer/denom)}%"
-                        x, y = dist[feat_mask], np.abs(this_diff[feat_mask, feature])
+                        x, y = this_diff[feat_mask, feature], dist[feat_mask]
                         counts, xbins, ybins, im = ax.hist2d(x, y,
-                                                                bins=(bins["d"], 100),
-                                                                cmap=self.cmap, cmin=self.cmin)
-                        corr = np.corrcoef(x, y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
+                                                             bins=(100, bins["d"]),
+                                                             cmap=self.cmap,
+                                                             cmin=self.cmin,
+                                                             )
+                        corr = np.corrcoef(np.abs(x), y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
 
                         if self.draw_envelope:
                             x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
@@ -589,16 +591,17 @@ class PCAPlotter:
                             # ax.scatter(x_bin_centers, percentile_hi, marker="_", color='cyan', linewidth=1.2)
 
                         xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
-                        ax.set_xlabel(f"Euclidean distance, {xlabel}")
-                        ax.set_ylabel(f"abs(Left - Right), feature {feature}: {feat_name}")
+                        ax.set_xlabel(f"Left - Right, feature {feature}: {feat_name}")
+                        ax.set_ylabel(f"Euclidean distance, {xlabel}")
                         ax.set_title(f"{comparison} pairs: {title}. Excluding {excluded}. Corr. = {corr:.2f}", fontsize=16)
                         ax.tick_params(right=True, top=True, which="both", direction="in")
                         ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
-                        ax.semilogx()
+                        ax.semilogy()
                         fig.colorbar(im, ax=ax, pad=self.pad)
                         fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
                         pdf.savefig()
                         plt.close()
+
 
         # PCA components
         print("Plotting PCA components")
@@ -638,7 +641,7 @@ class PCAPlotter:
         dup, nodup = 0, 1
         dims = range(-1, self.n_pca)
         bins = {}
-        bins["d"] = np.logspace(-3, 1, 101)
+        bins["d"] = np.logspace(-3, 0.9, 101)
         comparison = "t5pls"
 
         this_y = self.y_pls_test
@@ -671,29 +674,29 @@ class PCAPlotter:
                 print(f"Plotting PCA dim {dim} for {comparison} pairs")
 
                 # the distance to plot
-                dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else this_dist[:, dim]
+                dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else np.abs(this_dist[:, dim])
 
                 # the features to plot
-                for (feat_name, i_t5, i_pls) in feature_indices:
+                for i_plot, (feat_name, i_t5, i_pls) in enumerate(feature_indices):
 
-                    if self.quickplot and i_t5 > 1:
+                    if self.quickplot and i_plot > 2:
                         break
 
                     fig, ax = plt.subplots(figsize=(8, 8))
                     feat_mask = mask # & (this_diff[:, feature] != 0)
-                    x = dist[feat_mask]
-                    y = self.x_t5_test[feat_mask, i_t5] - self.x_pls_test[feat_mask, i_pls]
+                    x = self.x_t5_test[feat_mask, i_t5] - self.x_pls_test[feat_mask, i_pls]
+                    y = dist[feat_mask]
                     counts, xbins, ybins, im = ax.hist2d(x, y,
-                                                         bins=(bins["d"], 100),
+                                                         bins=(100, bins["d"]),
                                                          cmap=self.cmap, cmin=self.cmin)
                     corr = np.corrcoef(x, y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
                     xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
-                    ax.set_xlabel(f"Euclidean distance, {xlabel}")
-                    ax.set_ylabel(f"T5 - pLS: {feat_name}")
+                    ax.set_xlabel(f"T5 - pLS: {feat_name}")
+                    ax.set_ylabel(f"Euclidean distance, {xlabel}")
                     ax.set_title(f"{comparison} pairs: {title}. Corr. = {corr:.2f}", fontsize=16)
                     ax.tick_params(right=True, top=True, which="both", direction="in")
                     ax.text(1.08, 1.02, "Pairs", transform=ax.transAxes)
-                    ax.semilogx()
+                    ax.semilogy()
                     fig.colorbar(im, ax=ax, pad=self.pad)
                     fig.subplots_adjust(right=0.98, left=0.16, bottom=0.09, top=0.95)
                     pdf.savefig()
