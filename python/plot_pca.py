@@ -686,6 +686,9 @@ class PCAPlotter:
                     feat_mask = mask # & (this_diff[:, feature] != 0)
                     x = self.x_t5_test[feat_mask, i_t5] - self.x_pls_test[feat_mask, i_pls]
                     y = dist[feat_mask]
+                    if "phi" in feat_name.lower():
+                        x[x > np.pi] -= 2 * np.pi
+                        x[x < -np.pi] += 2 * np.pi
                     counts, xbins, ybins, im = ax.hist2d(x, y,
                                                          bins=(100, bins["d"]),
                                                          cmap=self.cmap, cmin=self.cmin)
