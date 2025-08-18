@@ -79,10 +79,10 @@ def main():
     plotter.check_math()
     plotter.do_tsne()
     with PdfPages(plotter.pdf_name) as pdf:
-        # plotter.plot1d_pairs(pdf)
+        plotter.plot1d_pairs(pdf)
         plotter.plot2d_pairs(pdf)
         plotter.plot2d_t5pls(pdf)
-        # plotter.plot2d_singles(pdf)
+        plotter.plot2d_singles(pdf)
 
 
 class PCAPlotter:
