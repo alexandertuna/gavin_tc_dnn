@@ -204,6 +204,7 @@ class Preprocessor:
                  use_no_phi,
                  upweight_displaced,
                  delta_r2_cut,
+                 test_size,
                  ):
 
         self.bonus_features = BONUS_FEATURES
@@ -221,11 +222,14 @@ class Preprocessor:
         self.use_no_phi = use_no_phi
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
+        self.test_size = test_size
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
         print(f"Using projected phi: {self.use_phi_projection}")
         print(f"Using (phi, phi+pi) for features: {self.use_phi_plus_pi}")
         print(f"Using pLS deltaPhi: {self.use_pls_deltaphi}")
         print(f"Upweighting displaced T5s: {self.upweight_displaced}")
+        print(f"Delta R^2 cut: {self.DELTA_R2_CUT}")
+        print(f"Test size: {self.test_size}")
 
         print("Getting T5 features")
         [features_per_event,
@@ -805,7 +809,7 @@ class Preprocessor:
         true_L_train, true_L_test, \
         true_R_train, true_R_test = train_test_split(
             X_left, X_right, y, weights_t5, true_L, true_R,
-            test_size=0.20, random_state=42,
+            test_size=self.test_size, random_state=42,
             stratify=y, shuffle=True
         )
 
@@ -891,7 +895,7 @@ class Preprocessor:
         y_pls_train, y_pls_test, \
         w_pls_train, w_pls_test = train_test_split(
             pls_feats, t5_feats, y_pls, w_pls,
-            test_size=0.20, random_state=42,
+            test_size=self.test_size, random_state=42,
             stratify=y_pls, shuffle=True
         )
 

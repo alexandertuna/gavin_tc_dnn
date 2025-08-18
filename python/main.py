@@ -37,6 +37,8 @@ def options():
                         help="Upweight factor for displaced features")
     parser.add_argument("--delta_r2_cut", type=float, default=0.02,
                         help="Delta R^2 cut for feature selection")
+    parser.add_argument("--test_size", type=float, default=0.2,
+                        help="Test size for train-test split")
     parser.add_argument("--use_phi_projection", action="store_true",
                         help="Flag to use position-based phi for PLS features")
     parser.add_argument("--use_phi_plus_pi", action="store_true",
@@ -82,7 +84,8 @@ def main():
                              use_pls_deltaphi=args.use_pls_deltaphi,
                              use_no_phi=args.use_no_phi,
                              upweight_displaced=args.upweight_displaced,
-                             delta_r2_cut=args.delta_r2_cut
+                             delta_r2_cut=args.delta_r2_cut,
+                             test_size=args.test_size,
                              )
 
     # Tests?
