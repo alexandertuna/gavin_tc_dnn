@@ -26,10 +26,6 @@ def options():
                         help="Path to save or load the model weights for comparison")
     parser.add_argument("--pdf", type=str, default="pca.pdf",
                         help="Path to save the output plots in PDF format")
-    parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
-                        help="Path to the precomputed T5 features file")
-    parser.add_argument("--features_pls", type=str, default="features_pls.pkl",
-                        help="Path to the precomputed PLS features file")
     parser.add_argument("--pairs_t5t5", type=str, default="pairs_t5t5.pkl",
                         help="Path to the precomputed T5-T5 pairs file")
     parser.add_argument("--pairs_t5pls", type=str, default="pairs_t5pls.pkl",
@@ -56,8 +52,6 @@ def options():
 def main():
     args = options()
     plotter = PCAPlotter(pdf_name=args.pdf,
-                         features_t5=args.features_t5,
-                         features_pls=args.features_pls,
                          pairs_t5t5=args.pairs_t5t5,
                          pairs_t5pls=args.pairs_t5pls,
                          pairs_plspls=args.pairs_plspls,
@@ -89,8 +83,6 @@ class PCAPlotter:
 
     def __init__(self,
                  pdf_name,
-                 features_t5,
-                 features_pls,
                  pairs_t5t5,
                  pairs_t5pls,
                  pairs_plspls,
@@ -106,8 +98,6 @@ class PCAPlotter:
                  ):
 
         self.pdf_name = pdf_name
-        self.features_t5 = features_t5
-        self.features_pls = features_pls
         self.pairs_t5t5 = pairs_t5t5
         self.pairs_t5pls = pairs_t5pls
         self.pairs_plspls = pairs_plspls
