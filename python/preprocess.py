@@ -581,8 +581,8 @@ class Preprocessor:
 
                 f = [
                     eta1 / ETA_MAX,
-                    np.cos(phi) if not self.use_phi_plus_pi else phi / PHI_MAX,
-                    np.sin(phi) if not self.use_phi_plus_pi else normalize_angle(phi + np.pi) / PHI_MAX,
+                    np.cos(phi),
+                    np.sin(phi),
                     z1 / z_max,
                     r1 / r_max,
 
@@ -617,8 +617,6 @@ class Preprocessor:
                     ev,
                     i,
                 ]
-                if self.use_no_phi:
-                    f[1] = f[2] = 0.0
                 feat_evt.append(f)
                 eta_evt.append(eta1)
                 disp_evt.append(branches['t5_sim_vxy'][ev][i])
@@ -697,8 +695,8 @@ class Preprocessor:
                 f = [
                     eta/4.0,
                     etaErr/.00139,
-                    np.cos(phi) if not self.use_phi_plus_pi else phi / PHI_MAX,
-                    np.sin(phi) if not self.use_phi_plus_pi else normalize_angle(phi + np.pi) / PHI_MAX,
+                    np.cos(phi),
+                    np.sin(phi),
                     1.0 / ptIn,
                     np.log10(ptErr),
                     isQuad,
@@ -708,8 +706,6 @@ class Preprocessor:
                 ]
                 if self.use_pls_deltaphi:
                     f.append(deltaPhi)
-                if self.use_no_phi:
-                    f[2] = f[3] = 0.0
                 # bonus features
                 f.extend([ev, i])
 
@@ -765,6 +761,20 @@ class Preprocessor:
             print(f"Filtering {np.sum(~mask)} pairs with NaN/Inf")
             x_pls_left, x_pls_right, y_pls = x_pls_left[mask], x_pls_right[mask], y_pls[mask]
 
+        # modify phi information if requested
+        if self.use_phi_plus_pi:
+            phi_l, ppi_l = get_phi_and_phi_plus_pi(x_pls_left[:, 2].copy(),
+                                                   x_pls_left[:, 3].copy())
+            phi_r, ppi_r = get_phi_and_phi_plus_pi(x_pls_right[:, 2].copy(),
+                                                   x_pls_right[:, 3].copy())
+            x_pls_left[:, 2] = phi_l / PHI_MAX
+            x_pls_left[:, 3] = ppi_l / PHI_MAX
+            x_pls_right[:, 2] = phi_r / PHI_MAX
+            x_pls_right[:, 3] = ppi_r / PHI_MAX
+        if self.use_no_phi:
+            x_pls_left[:, 2] = x_pls_left[:, 3] = 0.0
+            x_pls_right[:, 2] = x_pls_right[:, 3] = 0.0
+
         # write results to file
         print(f"Writing to {self.PAIRS_PLSPLS}")
         with open(self.PAIRS_PLSPLS, "wb") as fi:
@@ -793,6 +803,20 @@ class Preprocessor:
 
         if len(y) == 0:
             raise ValueError("No pairs generated. Check filters/data.")
+
+        # modify phi information if requested
+        if self.use_phi_plus_pi:
+            phi_l, ppi_l = get_phi_and_phi_plus_pi(X_left[:, 1].copy(),
+                                                   X_left[:, 2].copy())
+            phi_r, ppi_r = get_phi_and_phi_plus_pi(X_right[:, 1].copy(),
+                                                   X_right[:, 2].copy())
+            X_left[:, 1] = phi_l / PHI_MAX
+            X_left[:, 2] = ppi_l / PHI_MAX
+            X_right[:, 1] = phi_r / PHI_MAX
+            X_right[:, 2] = ppi_r / PHI_MAX
+        if self.use_no_phi:
+            X_left[:, 1] = X_left[:, 2] = 0.0
+            X_right[:, 1] = X_right[:, 2] = 0.0
 
         mask = (np.isfinite(X_left).all(axis=1) &
                 np.isfinite(X_right).all(axis=1))
@@ -888,6 +912,20 @@ class Preprocessor:
         y_pls     = np.array([p[2] for p in all_packed], dtype=np.int32)
         disp_flag = np.array([p[3] for p in all_packed], dtype=bool)
         w_pls     = np.array([self.upweight_displaced if p[3] else 1.0 for p in all_packed], dtype=np.float32)
+
+        # modify phi information if requested
+        if self.use_phi_plus_pi:
+            phi_t5, ppi_t5 = get_phi_and_phi_plus_pi(t5_feats[:, 1].copy(),
+                                                     t5_feats[:, 2].copy())
+            phi_pls, ppi_pls = get_phi_and_phi_plus_pi(pls_feats[:, 2].copy(),
+                                                       pls_feats[:, 3].copy())
+            t5_feats[:, 1] = phi_t5 / PHI_MAX
+            t5_feats[:, 2] = ppi_t5 / PHI_MAX
+            pls_feats[:, 2] = phi_pls / PHI_MAX
+            pls_feats[:, 3] = ppi_pls / PHI_MAX
+        if self.use_no_phi:
+            pls_feats[:, 2] = pls_feats[:, 3] = 0.0
+            t5_feats[:, 1] = t5_feats[:, 2] = 0.0
 
         # train/test split
         X_pls_train, X_pls_test, \
@@ -1342,3 +1380,10 @@ def _pairs_pls_single_event_vectorized(evt_idx,
     dt = time.time() - t0
     print(f"[evt {evt_idx:4d}]  PLSs={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds vectorized")
     return evt_idx, sim_pairs, dis_pairs
+
+def get_phi_and_phi_plus_pi(cos, sin):
+    phi = np.arctan2(sin, cos)
+    ppi = phi + np.pi
+    ppi[ppi > np.pi] -= 2 * np.pi
+    ppi[ppi < -np.pi] += 2 * np.pi
+    return phi, ppi
