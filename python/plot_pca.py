@@ -17,6 +17,7 @@ from ml import EmbeddingNetT5, EmbeddingNetpLS
 
 BONUS_FEATURES = 2
 k2Rinv1GeVf = (2.99792458e-3 * 3.8) / 2
+PHI_MAX = np.pi
 
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -46,6 +47,8 @@ def options():
                         help="Engineer additional features for T5s and PLSs")
     parser.add_argument("--draw_envelope", action='store_true',
                         help="Draw envelope around 2d difference plots")
+    parser.add_argument("--use_phi_plus_pi", action='store_true',
+                        help="Assume (phi, phi+pi) for features instead of cos,sin")
     return parser.parse_args()
 
 
@@ -64,6 +67,7 @@ def main():
                          tsne=args.tsne,
                          quickplot=args.quickplot,
                          draw_envelope=args.draw_envelope,
+                         use_phi_plus_pi=args.use_phi_plus_pi
                          )
     plotter.load_data()
     plotter.load_embedding_networks()
@@ -95,6 +99,7 @@ class PCAPlotter:
                  tsne,
                  quickplot,
                  draw_envelope,
+                 use_phi_plus_pi,
                  ):
 
         self.pdf_name = pdf_name
@@ -110,6 +115,7 @@ class PCAPlotter:
         self.tsne = tsne
         self.quickplot = quickplot
         self.draw_envelope = draw_envelope
+        self.use_phi_plus_pi = use_phi_plus_pi
 
         self.cmap = "hot"
         self.cmin = 0.5
@@ -253,6 +259,8 @@ class PCAPlotter:
             eng_t5_phi = np.arctan2(self.x_t5[:, 2], self.x_t5[:, 1])
             eng_t5_pt = (self.x_t5[:, 21] ** -1) * k2Rinv1GeVf * 2
             eng_t5_max_disp = np.maximum(self.x_t5[:, 26], self.x_t5[:, 26] + self.x_t5[:, 29])
+            if self.use_phi_plus_pi:
+                eng_t5_eta = self.x_t5[:, 1] * PHI_MAX
 
             # PLS
             eng_pls_eta = self.x_pls[:, 0] * 4.0
@@ -260,6 +268,8 @@ class PCAPlotter:
             eng_pls_rinv = (10 ** self.x_pls[:, 9]) ** -1.0
             eng_pls_pt = self.x_pls[:, 4] ** -1
             eng_pls_center_r = np.log10(np.sqrt((10 ** self.x_pls[:, 7]) ** 2 + (10 ** self.x_pls[:, 8]) ** 2))
+            if self.use_phi_plus_pi:
+                eng_pls_phi = self.x_pls[:, 2] * PHI_MAX
 
             # Combine
             self.x_t5 = np.concatenate((self.x_t5,
@@ -293,6 +303,8 @@ class PCAPlotter:
             phi = np.arctan2(self.x_left_test[:, 2], self.x_left_test[:, 1])
             pt = (self.x_left_test[:, 21] ** -1) * k2Rinv1GeVf * 2
             max_disp = np.maximum(self.x_left_test[:, 26], self.x_left_test[:, 26] + self.x_left_test[:, 29])
+            if self.use_phi_plus_pi:
+                phi = self.x_left_test[:, 1] * PHI_MAX
             self.x_left_test = np.concatenate((self.x_left_test,
                                                eta.reshape(-1, 1),
                                                phi.reshape(-1, 1),
@@ -305,6 +317,8 @@ class PCAPlotter:
             phi = np.arctan2(self.x_right_test[:, 2], self.x_right_test[:, 1])
             pt = (self.x_right_test[:, 21] ** -1) * k2Rinv1GeVf * 2
             max_disp = np.maximum(self.x_right_test[:, 26], self.x_right_test[:, 26] + self.x_right_test[:, 29])
+            if self.use_phi_plus_pi:
+                phi = self.x_right_test[:, 1] * PHI_MAX
             self.x_right_test = np.concatenate((self.x_right_test,
                                                 eta.reshape(-1, 1),
                                                 phi.reshape(-1, 1),
@@ -317,6 +331,8 @@ class PCAPlotter:
             phi = np.arctan2(self.x_t5_test[:, 2], self.x_t5_test[:, 1])
             pt = (self.x_t5_test[:, 21] ** -1) * k2Rinv1GeVf * 2
             max_disp = np.maximum(self.x_t5_test[:, 26], self.x_t5_test[:, 26] + self.x_t5_test[:, 29])
+            if self.use_phi_plus_pi:
+                phi = self.x_t5_test[:, 1] * PHI_MAX
             self.x_t5_test = np.concatenate((self.x_t5_test,
                                         eta.reshape(-1, 1),
                                         phi.reshape(-1, 1),
@@ -329,6 +345,8 @@ class PCAPlotter:
             rinv = (10 ** self.x_pls_test[:, 9]) ** -1.0
             pt = self.x_pls_test[:, 4] ** -1
             center_r = np.log10(np.sqrt((10 ** self.x_pls_test[:, 7]) ** 2 + (10 ** self.x_pls_test[:, 8]) ** 2))
+            if self.use_phi_plus_pi:
+                phi = self.x_pls_test[:, 2] * PHI_MAX
             self.x_pls_test = np.concatenate((self.x_pls_test,
                                          eta.reshape(-1, 1),
                                          phi.reshape(-1, 1),
@@ -344,6 +362,8 @@ class PCAPlotter:
             rinv = (10 ** self.x_pls_left[:, 9]) ** -1.0
             pt = self.x_pls_left[:, 4] ** -1
             center_r = np.log10(np.sqrt((10 ** self.x_pls_left[:, 7]) ** 2 + (10 ** self.x_pls_left[:, 8]) ** 2))
+            if self.use_phi_plus_pi:
+                phi = self.x_pls_left[:, 2] * PHI_MAX
             self.x_pls_left = np.concatenate((self.x_pls_left,
                                               eta.reshape(-1, 1),
                                               phi.reshape(-1, 1),
@@ -358,6 +378,8 @@ class PCAPlotter:
             rinv = (10 ** self.x_pls_right[:, 9]) ** -1.0
             pt = self.x_pls_right[:, 4] ** -1
             center_r = np.log10(np.sqrt((10 ** self.x_pls_right[:, 7]) ** 2 + (10 ** self.x_pls_right[:, 8]) ** 2))
+            if self.use_phi_plus_pi:
+                phi = self.x_pls_right[:, 2] * PHI_MAX
             self.x_pls_right = np.concatenate((self.x_pls_right,
                                                eta.reshape(-1, 1),
                                                phi.reshape(-1, 1),
