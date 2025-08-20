@@ -16,7 +16,7 @@ from ml import EmbeddingNetT5, EmbeddingNetpLS
 PAIRS_T5T5 = Path("pairs_t5t5.pkl")
 PAIRS_T5PLS = Path("pairs_t5pls.pkl")
 BRANCHES = Path("branches.pkl")
-BONUS_FEATURES = 2
+BONUS_FEATURES = 3
 SIM_BRANCHES = [
     "sim_pt",
     "sim_eta",

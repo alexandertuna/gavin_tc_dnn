@@ -28,7 +28,7 @@ ETA_MAX = 2.5
 ETA_MAX_PLS = 4.0
 PHI_MAX = np.pi
 
-BONUS_FEATURES = 2
+BONUS_FEATURES = 3
 
 # pairing hyper-parameters
 # DELTA_R2_CUT_PLS_T5 = DELTA_R2_CUT
@@ -577,12 +577,12 @@ class Preprocessor:
                 d_prompt  = branches['t5_t3_promptScore2'   ][ev][i] - s1_prompt
                 d_disp    = branches['t5_t3_displacedScore2'][ev][i] - s1_disp
 
-                phi = phi1 if not self.use_phi_projection else phi_projected[i]
+                phi_reco = phi_projected[i] if self.use_phi_projection else 0.0
 
                 f = [
                     eta1 / ETA_MAX,
-                    np.cos(phi),
-                    np.sin(phi),
+                    np.cos(phi1),
+                    np.sin(phi1),
                     z1 / z_max,
                     r1 / r_max,
 
@@ -614,6 +614,7 @@ class Preprocessor:
                     d_fake,  d_prompt,  d_disp,
 
                     # bonus features
+                    phi_reco,
                     ev,
                     i,
                 ]
@@ -681,7 +682,7 @@ class Preprocessor:
                 # ――― hit‑level quantities -------------------------------------------
                 eta = branches['pLS_eta'][ev][i]
                 etaErr = branches['pLS_etaErr'][ev][i]
-                phi = branches['pLS_phi'][ev][i] if not self.use_phi_projection else phi_projected[i]
+                phi = branches['pLS_phi'][ev][i]
                 circleCenterX = np.abs(branches['pLS_circleCenterX'][ev][i])
                 circleCenterY = np.abs(branches['pLS_circleCenterY'][ev][i])
                 circleRadius = branches['pLS_circleRadius'][ev][i]
@@ -690,6 +691,7 @@ class Preprocessor:
                 isQuad = branches['pLS_isQuad'][ev][i]
                 if self.use_pls_deltaphi:
                     deltaPhi = branches['pLS_deltaPhi'][ev][i]
+                phi_reco = phi_projected[i] if self.use_phi_projection else 0.0
 
                 # ――― build feature vector -------------------------------------------
                 f = [
@@ -707,7 +709,7 @@ class Preprocessor:
                 if self.use_pls_deltaphi:
                     f.append(deltaPhi)
                 # bonus features
-                f.extend([ev, i])
+                f.extend([phi_reco, ev, i])
 
                 feat_evt.append(f)
                 eta_evt.append(eta)
@@ -771,6 +773,13 @@ class Preprocessor:
             x_pls_left[:, 3] = ppi_l / PHI_MAX
             x_pls_right[:, 2] = phi_r / PHI_MAX
             x_pls_right[:, 3] = ppi_r / PHI_MAX
+        if self.use_phi_projection:
+            phi_l = x_pls_left[:, -3].copy()
+            phi_r = x_pls_right[:, -3].copy()
+            x_pls_left[:, 2] = np.cos(phi_l)
+            x_pls_left[:, 3] = np.sin(phi_l)
+            x_pls_right[:, 2] = np.cos(phi_r)
+            x_pls_right[:, 3] = np.sin(phi_r)
         if self.use_no_phi:
             x_pls_left[:, 2] = x_pls_left[:, 3] = 0.0
             x_pls_right[:, 2] = x_pls_right[:, 3] = 0.0
@@ -814,6 +823,13 @@ class Preprocessor:
             X_left[:, 2] = ppi_l / PHI_MAX
             X_right[:, 1] = phi_r / PHI_MAX
             X_right[:, 2] = ppi_r / PHI_MAX
+        if self.use_phi_projection:
+            phi_l = X_left[:, -3].copy()
+            phi_r = X_right[:, -3].copy()
+            X_left[:, 1] = np.cos(phi_l)
+            X_left[:, 2] = np.sin(phi_l)
+            X_right[:, 1] = np.cos(phi_r)
+            X_right[:, 2] = np.sin(phi_r)
         if self.use_no_phi:
             X_left[:, 1] = X_left[:, 2] = 0.0
             X_right[:, 1] = X_right[:, 2] = 0.0
@@ -923,6 +939,13 @@ class Preprocessor:
             t5_feats[:, 2] = ppi_t5 / PHI_MAX
             pls_feats[:, 2] = phi_pls / PHI_MAX
             pls_feats[:, 3] = ppi_pls / PHI_MAX
+        if self.use_phi_projection:
+            phi_t5 = t5_feats[:, -3].copy()
+            phi_pls = pls_feats[:, -3].copy()
+            t5_feats[:, 1] = np.cos(phi_t5)
+            t5_feats[:, 2] = np.sin(phi_t5)
+            pls_feats[:, 2] = np.cos(phi_pls)
+            pls_feats[:, 3] = np.sin(phi_pls)
         if self.use_no_phi:
             pls_feats[:, 2] = pls_feats[:, 3] = 0.0
             t5_feats[:, 1] = t5_feats[:, 2] = 0.0
