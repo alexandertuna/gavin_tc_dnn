@@ -705,7 +705,7 @@ class PCAPlotter:
                     counts, xbins, ybins, im = ax.hist2d(x, y,
                                                          bins=(100, bins["d"]),
                                                          cmap=self.cmap, cmin=self.cmin)
-                    corr = np.corrcoef(x, y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
+                    corr = np.corrcoef(x, y)[0, 1] if len(x) and len(y) and np.std(x) > 0 and np.std(y) > 0 else 0
                     xlabel = "total" if dim == -1 else f"PCA dim. {dim}"
                     ax.set_xlabel(f"T5 - pLS: {feat_name}")
                     ax.set_ylabel(f"Euclidean distance, {xlabel}")
