@@ -580,6 +580,7 @@ class PCAPlotter:
 
                         if self.quickplot and feature > 2:
                             break
+
                         fig, ax = plt.subplots(figsize=(8, 8))
                         feat_mask = mask & (this_diff[:, feature] != 0)
                         feat_name = feature_name(comparison, feature)
@@ -591,7 +592,7 @@ class PCAPlotter:
                                                              cmap=self.cmap,
                                                              cmin=self.cmin,
                                                              )
-                        corr = np.corrcoef(np.abs(x), y)[0, 1] if np.std(x) > 0 and np.std(y) > 0 else 0
+                        corr = np.corrcoef(np.abs(x), y)[0, 1] if len(x) and len(y) and np.std(x) > 0 and np.std(y) > 0 else 0
 
                         if self.draw_envelope:
                             x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
