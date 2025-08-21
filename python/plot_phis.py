@@ -298,6 +298,7 @@ class PhiPlotter:
             self.plot_charge(pdf)
             self.plot_eta_vs_r(pdf)
             self.plot_pls_phi_vs_phi(pdf)
+            self.plot_detas(pdf)
             self.plot_dphis(pdf)
             self.plot_dphi_vs_pt(pdf)
             self.plot_dphi_common(pdf)
@@ -405,6 +406,26 @@ class PhiPlotter:
         ax.set_ylabel(f"pLS phi position")
         fig.colorbar(im, ax=ax, pad=0.01)
         fig.subplots_adjust(left=0.1, right=0.95, top=0.96, bottom=0.1)
+        pdf.savefig()
+        plt.close()
+
+
+    def plot_detas(self, pdf: PdfPages) -> None:
+        print("Plotting delta eta distributions")
+
+        # 1D diff
+        bins = 100 # np.arange(-0.25, 0.25, 0.002)
+        fig, ax = plt.subplots(figsize=(8, 8))
+        mask = np.abs(self.df["t5_eta"]) < ETA_RESTRICTION
+        ax.hist((self.df["t5_eta"] - self.df["pLS_eta"])[mask],
+                bins=bins,
+                alpha=0.5,
+                histtype='stepfilled',
+                edgecolor='black',
+                linewidth=0.5)
+        ax.set_xlabel("deta")
+        ax.set_ylabel("Counts")
+        fig.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.1, hspace=0.3, wspace=0.3)
         pdf.savefig()
         plt.close()
 
