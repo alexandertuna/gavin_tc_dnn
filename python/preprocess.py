@@ -1069,6 +1069,7 @@ def _pairs_single_event_vectorized(evt_idx,
     phi_r = phi1[idx_r]
     dphi = np.abs(phi_l - phi_r)
     dphi[dphi > np.pi] -= 2 * np.pi  # adjust to [-pi, pi]
+    dphi[dphi < -np.pi] += 2 * np.pi
     dr2 = (eta_l - eta_r)**2 + dphi**2
 
     dr2_valid = (dr2 < DELTA_R2_CUT)
@@ -1383,6 +1384,7 @@ def _pairs_pls_single_event_vectorized(evt_idx,
     phi_r = phi1[idx_r]
     dphi = np.abs(phi_l - phi_r)
     dphi[dphi > np.pi] -= 2 * np.pi  # adjust to [-pi, pi]
+    dphi[dphi < -np.pi] += 2 * np.pi
     dr2 = (eta_l - eta_r)**2 + dphi**2
 
     basic_mask = (dr2 < DELTA_R2_CUT) & (simidx_l != invalid_sim) & (simidx_r != invalid_sim)
