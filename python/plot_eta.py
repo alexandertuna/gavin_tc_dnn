@@ -26,7 +26,7 @@ def main():
 
     eta_l = X_left_test[:, 0] * eta_max
     eta_r = X_right_test[:, 0] * eta_max
-    mask = eta_l != eta_r
+    mask = (y_t5_test == 1) & (eta_l != eta_r)
 
     with PdfPages(args.pdf) as pdf:
         fig, ax = plt.subplots(figsize=(8, 8))
