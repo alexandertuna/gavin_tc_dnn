@@ -205,6 +205,7 @@ class Preprocessor:
                  upweight_displaced,
                  delta_r2_cut,
                  test_size,
+                 dont_swap_lr,
                  ):
 
         self.bonus_features = BONUS_FEATURES
@@ -223,6 +224,7 @@ class Preprocessor:
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
         self.test_size = test_size
+        self.swap_lr = not dont_swap_lr
         branches = self.load_root_file(root_path) if not self.LOAD_FEATURES else None
         print(f"Using projected phi: {self.use_phi_projection}")
         print(f"Using (phi, phi+pi) for features: {self.use_phi_plus_pi}")
@@ -230,6 +232,7 @@ class Preprocessor:
         print(f"Upweighting displaced T5s: {self.upweight_displaced}")
         print(f"Delta R^2 cut: {self.DELTA_R2_CUT}")
         print(f"Test size: {self.test_size}")
+        print(f"Swap LR: {self.swap_lr}")
 
         print("Getting T5 features")
         [features_per_event,
@@ -752,6 +755,7 @@ class Preprocessor:
             invalid_sim_idx                = -1,
             n_workers                      = min(32, os.cpu_count() // 2),
             DELTA_R2_CUT                   = self.DELTA_R2_CUT,
+            SWAP_LR                        = self.swap_lr,
         )
 
         # checks
@@ -808,6 +812,7 @@ class Preprocessor:
             invalid_sim_idx                = -1,
             n_workers                      = min(32, os.cpu_count() // 2),
             DELTA_R2_CUT                   = self.DELTA_R2_CUT,
+            SWAP_LR                        = self.swap_lr,
         )
 
         if len(y) == 0:
@@ -1051,7 +1056,8 @@ def _pairs_single_event_vectorized(evt_idx,
                                    F, S, D,
                                    max_sim, max_dis,
                                    invalid_sim,
-                                   DELTA_R2_CUT):
+                                   DELTA_R2_CUT,
+                                   SWAP_LR):
     t0 = time.time()
     n = F.shape[0]
     eta1, phi1 = F[:, 0] * ETA_MAX, np.arctan2(F[:, 2], F[:, 1])
@@ -1059,6 +1065,13 @@ def _pairs_single_event_vectorized(evt_idx,
     # upper-triangle (non-diagonal) indices
     idx_l, idx_r = np.triu_indices(n, k=1)
     idxs_triu = np.stack((idx_l, idx_r), axis=-1)
+
+    # sanity check
+    if evt_idx == 0:
+        print("Upper-triangular indexing:")
+        np.set_printoptions(edgeitems=8, linewidth=120)
+        print(f"{idx_l=}")
+        print(f"{idx_r=}")
 
     simidx_l = S[idx_l]
     simidx_r = S[idx_r]
@@ -1087,6 +1100,16 @@ def _pairs_single_event_vectorized(evt_idx,
     if len(dis_pairs) > max_dis:
         dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
 
+    # randomly swap L/R to avoid bias
+    # use the random module to maintain per-thread independence
+    if SWAP_LR:
+        state = random.getstate()
+        sim_mask = [random.random() < 0.5 for _ in range(len(sim_pairs))]
+        dis_mask = [random.random() < 0.5 for _ in range(len(dis_pairs))]
+        # sim_pairs[sim_mask, 0], sim_pairs[sim_mask, 1] = sim_pairs[sim_mask, 1], sim_pairs[sim_mask, 0]
+        dis_pairs[dis_mask, 0], dis_pairs[dis_mask, 1] = dis_pairs[dis_mask, 1], dis_pairs[dis_mask, 0]
+        random.setstate(state)
+
     dt = time.time() - t0
     print(f"[evt {evt_idx:4d}]  T5s={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds vectorized")
     return evt_idx, sim_pairs, dis_pairs
@@ -1101,7 +1124,8 @@ def create_t5_pairs_balanced_parallel(features_per_event,
                                       invalid_sim_idx=-1,
                                       n_workers=None,
                                       vectorize=True,
-                                      DELTA_R2_CUT=0.0):
+                                      DELTA_R2_CUT=0.0,
+                                      SWAP_LR=True):
     t0 = time.time()
     print(f"\n>>> Pair generation  (ΔR² < {DELTA_R2_CUT})  –  parallel mode")
 
@@ -1114,6 +1138,7 @@ def create_t5_pairs_balanced_parallel(features_per_event,
         max_dissimilar_pairs_per_event,
         invalid_sim_idx,
         DELTA_R2_CUT,
+        SWAP_LR,
         )
         for evt_idx in range(len(features_per_event))
         # for evt_idx in range(50)
@@ -1171,7 +1196,8 @@ def create_pls_pairs_balanced_parallel(features_per_event,
                                        max_dissimilar_pairs_per_event=450,
                                        invalid_sim_idx=-1,
                                        n_workers=None,
-                                       DELTA_R2_CUT=0.0):
+                                       DELTA_R2_CUT=0.0,
+                                       SWAP_LR=True):
     t0 = time.time()
     print(f"\n>>> Pair generation  (ΔR² < {DELTA_R2_CUT})  –  parallel mode")
 
@@ -1183,6 +1209,7 @@ def create_pls_pairs_balanced_parallel(features_per_event,
          max_dissimilar_pairs_per_event,
          invalid_sim_idx,
          DELTA_R2_CUT,
+         SWAP_LR,
          )
          for evt_idx in range(len(features_per_event))
          # for evt_idx in range(5)
@@ -1366,7 +1393,8 @@ def _pairs_pls_single_event_vectorized(evt_idx,
                                        F, S,
                                        max_sim, max_dis,
                                        invalid_sim,
-                                       DELTA_R2_CUT):
+                                       DELTA_R2_CUT,
+                                       SWAP_LR):
     t0 = time.time()
     n = F.shape[0]
     eta1, phi1 = F[:, 0] * ETA_MAX_PLS, np.arctan2(F[:, 3], F[:, 2])
@@ -1401,6 +1429,14 @@ def _pairs_pls_single_event_vectorized(evt_idx,
         sim_pairs = sim_pairs[random.sample(range(len(sim_pairs)), max_sim)]
     if len(dis_pairs) > max_dis:
         dis_pairs = dis_pairs[random.sample(range(len(dis_pairs)), max_dis)]
+
+    if SWAP_LR:
+        state = random.getstate()
+        sim_mask = [random.random() < 0.5 for _ in range(len(sim_pairs))]
+        dis_mask = [random.random() < 0.5 for _ in range(len(dis_pairs))]
+        # sim_pairs[sim_mask, 0], sim_pairs[sim_mask, 1] = sim_pairs[sim_mask, 1], sim_pairs[sim_mask, 0]
+        # dis_pairs[dis_mask, 0], dis_pairs[dis_mask, 1] = dis_pairs[dis_mask, 1], dis_pairs[dis_mask, 0]
+        random.setstate(state)
 
     dt = time.time() - t0
     print(f"[evt {evt_idx:4d}]  PLSs={n:5d}  sim. pairs={len(sim_pairs):3d}  dis. pairs={len(dis_pairs):3d} | {dt:.1f} seconds vectorized")
