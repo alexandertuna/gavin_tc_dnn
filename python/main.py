@@ -49,6 +49,8 @@ def options():
                         help="Flag to use learning rate scheduler")
     parser.add_argument("--use_no_phi", action="store_true",
                         help="Flag to exclude phi from features")
+    parser.add_argument("--dont_swap_lr", action="store_true",
+                        help="Flag to keep lr unswapped")
     parser.add_argument("--features_t5", type=str, default="features_t5.pkl",
                         help="Path to the precomputed T5 features file")
     parser.add_argument("--features_pls", type=str, default="features_pls.pkl",
@@ -86,6 +88,7 @@ def main():
                              upweight_displaced=args.upweight_displaced,
                              delta_r2_cut=args.delta_r2_cut,
                              test_size=args.test_size,
+                             dont_swap_lr=args.dont_swap_lr,
                              )
 
     # Tests?
