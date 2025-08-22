@@ -1106,7 +1106,7 @@ def _pairs_single_event_vectorized(evt_idx,
         state = random.getstate()
         sim_mask = [random.random() < 0.5 for _ in range(len(sim_pairs))]
         dis_mask = [random.random() < 0.5 for _ in range(len(dis_pairs))]
-        # sim_pairs[sim_mask, 0], sim_pairs[sim_mask, 1] = sim_pairs[sim_mask, 1], sim_pairs[sim_mask, 0]
+        sim_pairs[sim_mask, 0], sim_pairs[sim_mask, 1] = sim_pairs[sim_mask, 1], sim_pairs[sim_mask, 0]
         dis_pairs[dis_mask, 0], dis_pairs[dis_mask, 1] = dis_pairs[dis_mask, 1], dis_pairs[dis_mask, 0]
         random.setstate(state)
 
@@ -1434,8 +1434,8 @@ def _pairs_pls_single_event_vectorized(evt_idx,
         state = random.getstate()
         sim_mask = [random.random() < 0.5 for _ in range(len(sim_pairs))]
         dis_mask = [random.random() < 0.5 for _ in range(len(dis_pairs))]
-        # sim_pairs[sim_mask, 0], sim_pairs[sim_mask, 1] = sim_pairs[sim_mask, 1], sim_pairs[sim_mask, 0]
-        # dis_pairs[dis_mask, 0], dis_pairs[dis_mask, 1] = dis_pairs[dis_mask, 1], dis_pairs[dis_mask, 0]
+        sim_pairs[sim_mask, 0], sim_pairs[sim_mask, 1] = sim_pairs[sim_mask, 1], sim_pairs[sim_mask, 0]
+        dis_pairs[dis_mask, 0], dis_pairs[dis_mask, 1] = dis_pairs[dis_mask, 1], dis_pairs[dis_mask, 0]
         random.setstate(state)
 
     dt = time.time() - t0
