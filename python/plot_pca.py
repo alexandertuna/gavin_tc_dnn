@@ -77,6 +77,7 @@ def main():
     plotter.check_math()
     plotter.do_tsne()
     with PdfPages(plotter.pdf_name) as pdf:
+        plotter.plot_pca_components(pdf)
         plotter.plot1d_pairs(pdf)
         plotter.plot2d_pairs(pdf)
         plotter.plot2d_t5pls(pdf)
@@ -615,6 +616,8 @@ class PCAPlotter:
                         pdf.savefig()
                         plt.close()
 
+
+    def plot_pca_components(self, pdf: PdfPages):
 
         # PCA components
         print("Plotting PCA components")
