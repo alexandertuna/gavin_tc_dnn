@@ -181,13 +181,57 @@ class Trainer:
             avg_t5     = total_t5   / len(self.train_t5_loader)
             avg_pls    = total_pls  / len(self.train_pls_loader)
             lr = self.optimizer.param_groups[0]['lr']
+
+            avg_loss_test, avg_t5_test, avg_pls_test = self.get_test_losses()
+
             print(f"Epoch {epoch}/{self.num_epochs}:  JointLoss={avg_loss:.4f}  "
-                  f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}  LR={lr:.6f}")
+                  f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}  LR={lr:.6f}  "
+                  f"TestJointLoss={avg_loss_test:.4f}  TestT5={avg_t5_test:.4f}  TestpLS={avg_pls_test:.4f}")
             self.losses_t5t5.append(avg_t5)
             self.losses_t5pls.append(avg_pls)
 
         # disable training mode
         self.embed_pls.eval(); self.embed_t5.eval()
+
+
+    def get_test_losses(self):
+        # calculate test loss
+        with torch.no_grad():
+
+            total_loss = 0.0
+            total_t5   = 0.0
+            total_pls  = 0.0
+            self.embed_pls.eval(); self.embed_t5.eval()
+
+            for (l, r, y0, w0), (p5, t5f, y1, w1) in zip(self.test_t5_loader, self.test_pls_loader):
+                # to device
+                l   = l.to(DEVICE);   r    = r.to(DEVICE)
+                y0_ = y0.to(DEVICE);  w0_  = w0.to(DEVICE)
+                p5  = p5.to(DEVICE);  t5f_ = t5f.to(DEVICE)
+                y1_ = y1.to(DEVICE);  w1_  = w1.to(DEVICE)
+
+                # --- T5–T5 forward & loss ---
+                e_l = self.embed_t5(l);  e_r = self.embed_t5(r)
+                d0 = torch.sqrt(((e_l-e_r)**2).sum(1,keepdim=True) + 1e-6)
+                loss0 = self.criterion(d0, y0_, w0_)
+
+                # --- pLS-T5 forward & loss ---
+                e_p5 = self.embed_pls(p5)
+                e_t5 = self.embed_t5(t5f_)
+                d1 = torch.sqrt(((e_p5-e_t5)**2).sum(1,keepdim=True) + 1e-6)
+                loss1 = self.criterion(d1, y1_, w1_)
+
+                loss = loss0 + loss1
+                total_loss += loss.item()
+                total_t5  += loss0.item()
+                total_pls += loss1.item()
+
+            avg_loss   = total_loss / len(self.test_pls_loader)
+            avg_t5     = total_t5   / len(self.test_t5_loader)
+            avg_pls    = total_pls  / len(self.test_pls_loader)
+
+            return avg_loss, avg_t5, avg_pls
+
 
 
     def print_thresholds(self):
