@@ -593,7 +593,7 @@ class PCAPlotter:
                                                              cmap=self.cmap,
                                                              cmin=self.cmin,
                                                              )
-                        corr = np.corrcoef(np.abs(x), y)[0, 1] if len(x) and len(y) and np.std(x) > 0 and np.std(y) > 0 else 0
+                        corr = np.corrcoef(np.abs(x), y)[0, 1] if len(np.unique(x)) > 2 and len(np.unique(y)) > 2 else 0
 
                         if self.draw_envelope:
                             x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
