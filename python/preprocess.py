@@ -524,8 +524,8 @@ class Preprocessor:
         kept_tot, init_tot = 0, 0
         for ev in tqdm(range(n_events)):
 
-            if self.use_phi_projection:
-                phi_projected = self.get_t5_phi_projected(branches, ev)
+            # if self.use_phi_projection:
+            phi_projected = self.get_t5_phi_projected(branches, ev)
 
             n_t5 = len(branches['t5_t3_idx0'][ev])
             init_tot += n_t5
@@ -580,7 +580,7 @@ class Preprocessor:
                 d_prompt  = branches['t5_t3_promptScore2'   ][ev][i] - s1_prompt
                 d_disp    = branches['t5_t3_displacedScore2'][ev][i] - s1_disp
 
-                phi_reco = phi_projected[i] if self.use_phi_projection else 0.0
+                phi_proj = phi_projected[i] # if self.use_phi_projection else 0.0
 
                 f = [
                     eta1 / ETA_MAX,
@@ -617,7 +617,7 @@ class Preprocessor:
                     d_fake,  d_prompt,  d_disp,
 
                     # bonus features
-                    phi_reco,
+                    phi_proj,
                     ev,
                     i,
                 ]
@@ -671,8 +671,8 @@ class Preprocessor:
             if n_pls == 0:
                 continue
 
-            if self.use_phi_projection:
-                phi_projected = self.get_pls_phi_projected(branches, ev)
+            # if self.use_phi_projection:
+            phi_projected = self.get_pls_phi_projected(branches, ev)
 
             feat_evt, eta_evt, sim_evt = [], [], []
 
@@ -694,7 +694,7 @@ class Preprocessor:
                 isQuad = branches['pLS_isQuad'][ev][i]
                 if self.use_pls_deltaphi:
                     deltaPhi = branches['pLS_deltaPhi'][ev][i]
-                phi_reco = phi_projected[i] if self.use_phi_projection else 0.0
+                phi_proj = phi_projected[i] # if self.use_phi_projection else 0.0
 
                 # ――― build feature vector -------------------------------------------
                 f = [
@@ -712,7 +712,7 @@ class Preprocessor:
                 if self.use_pls_deltaphi:
                     f.append(deltaPhi)
                 # bonus features
-                f.extend([phi_reco, ev, i])
+                f.extend([phi_proj, ev, i])
 
                 feat_evt.append(f)
                 eta_evt.append(eta)
