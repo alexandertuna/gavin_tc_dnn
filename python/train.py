@@ -182,11 +182,12 @@ class Trainer:
             avg_pls    = total_pls  / len(self.train_pls_loader)
             lr = self.optimizer.param_groups[0]['lr']
 
-            avg_loss_test, avg_t5_test, avg_pls_test = self.get_test_losses()
+            # avg_loss_test, avg_t5_test, avg_pls_test = self.get_test_losses()
 
             print(f"Epoch {epoch}/{self.num_epochs}:  JointLoss={avg_loss:.4f}  "
                   f"T5={avg_t5:.4f}  pLS={avg_pls:.4f}  LR={lr:.6f}  "
-                  f"TestJointLoss={avg_loss_test:.4f}  TestT5={avg_t5_test:.4f}  TestpLS={avg_pls_test:.4f}")
+                  # f"TestJointLoss={avg_loss_test:.4f}  TestT5={avg_t5_test:.4f}  TestpLS={avg_pls_test:.4f}"
+                  )
             self.losses_t5t5.append(avg_t5)
             self.losses_t5pls.append(avg_pls)
 
