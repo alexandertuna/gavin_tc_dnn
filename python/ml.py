@@ -7,6 +7,9 @@ import torch.optim as optim
 import T5EmbedNetworkWeights
 import pLSEmbedNetworkWeights
 
+NODES = 32
+EXTRA_LAYER = False
+
 class SiameseDataset(Dataset):
     def __init__(self, X_left, X_right, y, w):
         if not isinstance(X_left, np.ndarray):  X_left  = np.array(X_left)
@@ -38,12 +41,16 @@ class PLST5Dataset(Dataset):
 class EmbeddingNetT5(nn.Module):
     def __init__(self, input_dim=30, emb_dim=6):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, 32); self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(32, 32);         self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(32, emb_dim)
+        self.fc1 = nn.Linear(input_dim, NODES); self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(NODES, NODES);         self.relu2 = nn.ReLU()
+        if EXTRA_LAYER:
+            self.fc2a = nn.Linear(NODES, NODES);    self.relu2a = nn.ReLU()
+        self.fc3 = nn.Linear(NODES, emb_dim)
     def forward(self, x):
         x = self.relu1(self.fc1(x))
         x = self.relu2(self.fc2(x))
+        if EXTRA_LAYER:
+            x = self.relu2a(self.fc2a(x))
         return self.fc3(x)
     def load_from_header(self):
         with torch.no_grad():
@@ -58,12 +65,16 @@ class EmbeddingNetT5(nn.Module):
 class EmbeddingNetpLS(nn.Module):
     def __init__(self, input_dim=10, emb_dim=6):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, 32); self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(32, 32);         self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(32, emb_dim)
+        self.fc1 = nn.Linear(input_dim, NODES); self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(NODES, NODES);         self.relu2 = nn.ReLU()
+        if EXTRA_LAYER:
+            self.fc2a = nn.Linear(NODES, NODES);    self.relu2a = nn.ReLU()
+        self.fc3 = nn.Linear(NODES, emb_dim)
     def forward(self, x):
         x = self.relu1(self.fc1(x))
         x = self.relu2(self.fc2(x))
+        if EXTRA_LAYER:
+            x = self.relu2a(self.fc2a(x))
         return self.fc3(x)
     def load_from_header(self):
         with torch.no_grad():
