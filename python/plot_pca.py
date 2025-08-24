@@ -182,6 +182,14 @@ class PCAPlotter:
         self.y_pls = y_pls
         self.x_pls_diff = (self.x_pls_left - self.x_pls_right)
 
+        # save bonus features
+        self.x_left_test_bonus = X_left_test[:, -BONUS_FEATURES:]
+        self.x_right_test_bonus = X_right_test[:, -BONUS_FEATURES:]
+        self.x_pls_test_bonus = X_pls_test[:, -BONUS_FEATURES:]
+        self.x_t5_test_bonus = X_t5raw_test[:, -BONUS_FEATURES:]
+        self.x_pls_left_bonus = X_pls_left[:, -BONUS_FEATURES:]
+        self.x_pls_right_bonus = X_pls_right[:, -BONUS_FEATURES:]
+
 
     def load_embedding_networks(self):
 
@@ -393,9 +401,17 @@ class PCAPlotter:
             self.x_diff_test = (self.x_left_test - self.x_right_test)
             self.x_pls_diff = (self.x_pls_left - self.x_pls_right)
 
+            # Bonus diffs!
+            self.x_t5t5_bonus_diff = (self.x_left_test_bonus - self.x_right_test_bonus)[:, :1]
+            self.x_t5pls_bonus_diff = (self.x_t5_test_bonus - self.x_pls_test_bonus)[:, :1]
+            self.x_plspls_bonus_diff = (self.x_pls_left_bonus - self.x_pls_right_bonus)[:, :1]
+
             # Adjust dphi
             self.x_diff_test[:, 31] = delta_angle(self.x_diff_test[:, 31])
             self.x_pls_diff[:, 11] = delta_angle(self.x_pls_diff[:, 11])
+            self.x_t5t5_bonus_diff[:, 0] = delta_angle(self.x_t5t5_bonus_diff[:, 0])
+            self.x_t5pls_bonus_diff[:, 0] = delta_angle(self.x_t5pls_bonus_diff[:, 0])
+            self.x_plspls_bonus_diff[:, 0] = delta_angle(self.x_plspls_bonus_diff[:, 0])
 
 
     def do_pca(self):
@@ -541,23 +557,33 @@ class PCAPlotter:
         for comparison in ["t5t5",
                            "plspls",
                             ]:
-            # break
+
+            if self.quickplot and comparison == "plspls":
+                continue
 
             if comparison == "t5t5":
                 this_y = self.y_t5_test
                 this_dist = self.proj_x_l - self.proj_x_r
                 this_diff = self.x_diff_test
+                this_diff_bonus = self.x_t5t5_bonus_diff
             elif comparison == "plspls":
                 this_y = self.y_pls
                 this_dist = self.proj_x_pls_l - self.proj_x_pls_r
                 this_diff = self.x_pls_diff
+                this_diff_bonus = self.x_plspls_bonus_diff
 
-            for status in [dup, nodup]:
+            for status in [dup,
+                           nodup,
+                           ]:
+
+                if self.quickplot and status == nodup:
+                    continue
 
                 print(f"Plotting {comparison} pairs for status {status}")
                 mask = (this_y == status)
                 title = "duplicate" if status == dup else "non-duplicate"
                 n_features = this_diff.shape[1]
+                n_bonus = this_diff_bonus.shape[1]
 
                 for dim in dims:
 
@@ -577,22 +603,30 @@ class PCAPlotter:
                     # the distance to plot
                     dist = np.linalg.norm(this_dist, axis=1) if dim == -1 else np.abs(this_dist[:, dim])
 
-                    for feature in range(n_features):
+                    for feature in range(n_features + n_bonus):
 
                         if self.quickplot and feature > 2:
                             break
 
-                        fig, ax = plt.subplots(figsize=(8, 8))
-                        feat_mask = mask & (this_diff[:, feature] != 0)
-                        feat_name = feature_name(comparison, feature)
-                        numer, denom = np.sum(mask & (this_diff[:, feature] == 0)), np.sum(mask)
+                        # input features and engineered features
+                        is_bonus = feature >= n_features
+                        feature = feature - n_features if is_bonus else feature
+                        identical = (np.abs(this_diff[:, feature]) < 1e-5) if not is_bonus else (np.abs(this_diff_bonus[:, feature]) < 1e-5)
+
+                        feat_mask = mask & (~identical)
+                        feat_name = feature_name(comparison, feature, is_bonus)
+                        numer, denom = np.sum(mask & identical), np.sum(mask)
                         excluded = f"{int(100*numer/denom)}%"
-                        x, y = this_diff[feat_mask, feature], dist[feat_mask]
-                        counts, xbins, ybins, im = ax.hist2d(x, y,
-                                                             bins=(100, bins["d"]),
-                                                             cmap=self.cmap,
-                                                             cmin=self.cmin,
-                                                             )
+
+                        x = this_diff[feat_mask, feature] if not is_bonus else this_diff_bonus[feat_mask, feature]
+                        y = dist[feat_mask]
+
+                        fig, ax = plt.subplots(figsize=(8, 8))
+                        _, _, _, im = ax.hist2d(x, y,
+                                                bins=(100, bins["d"]),
+                                                cmap=self.cmap,
+                                                cmin=self.cmin,
+                                                )
                         corr = np.corrcoef(np.abs(x), y)[0, 1] if len(np.unique(x)) > 2 and len(np.unique(y)) > 2 else 0
 
                         if self.draw_envelope:
@@ -836,16 +870,21 @@ def feature_binning(dim: int, feat_name: str):
         return [bins, np.linspace(0, 300, 100)]
     return bins
 
-def feature_name(name: str, feature: int) -> str:
+def feature_name(name: str, feature: int, is_bonus: bool) -> str:
     if name == "T5" or name == "t5" or name == "t5t5":
-        return feature_name_t5(feature)
+        return feature_name_t5(feature, is_bonus)
     elif name == "PLS" or name == "pls" or name == "plspls":
-        return feature_name_pls(feature)
+        return feature_name_pls(feature, is_bonus)
     else:
         raise ValueError(f"Unknown feature type: {name}")
 
 
-def feature_name_t5(feature: int) -> str:
+def feature_name_t5(feature: int, is_bonus: bool) -> str:
+    if is_bonus:
+        if feature == 0:
+            return "Projected phi"
+        else:
+            return "FIXX MEEE"
     if feature == 0:
         return "eta1 / 2.5"
     elif feature == 1:
@@ -927,7 +966,12 @@ def feature_name_t5(feature: int) -> str:
         raise ValueError(f"Unknown T5 feature index: {feature}")
 
 
-def feature_name_pls(feature: int) -> str:
+def feature_name_pls(feature: int, is_bonus: bool) -> str:
+    if is_bonus:
+        if feature == 0:
+            return "Projected phi"
+        else:
+            return "FIXX MEEE"
     if feature == 0:
         return "eta/4.0"
     elif feature == 1:
