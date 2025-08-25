@@ -772,7 +772,7 @@ class PCAPlotter:
                 for feature in range(n_features):
                     if self.quickplot and feature > 5:
                         break
-                    feat_name = feature_name(name, feature)
+                    feat_name = feature_name(name, feature, is_bonus=False)
                     this_bins = feature_binning(dim, feat_name)
                     fig, ax = plt.subplots(figsize=(8, 8))
                     _, _, _, im = ax.hist2d(self.proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
