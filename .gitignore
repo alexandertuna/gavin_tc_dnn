@@ -180,6 +180,8 @@ cython_debug/
 *.npz
 *.bak
 *.pdf
+*.pth
+*.parquet
 *.gif
 *.root
 *~
