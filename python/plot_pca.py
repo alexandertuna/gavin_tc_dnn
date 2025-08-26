@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from scipy.stats import spearmanr
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
@@ -49,6 +50,8 @@ def options():
                         help="Draw envelope around 2d difference plots")
     parser.add_argument("--use_phi_plus_pi", action='store_true',
                         help="Assume (phi, phi+pi) for features instead of cos,sin")
+    parser.add_argument("--tell_me_phi_correlation", action='store_true',
+                        help="Print the correlation between dphi and dembedding")
     return parser.parse_args()
 
 
@@ -67,7 +70,8 @@ def main():
                          tsne=args.tsne,
                          quickplot=args.quickplot,
                          draw_envelope=args.draw_envelope,
-                         use_phi_plus_pi=args.use_phi_plus_pi
+                         use_phi_plus_pi=args.use_phi_plus_pi,
+                         tell_me_phi_correlation=args.tell_me_phi_correlation,
                          )
     plotter.load_data()
     plotter.load_embedding_networks()
@@ -101,6 +105,7 @@ class PCAPlotter:
                  quickplot,
                  draw_envelope,
                  use_phi_plus_pi,
+                 tell_me_phi_correlation,
                  ):
 
         self.pdf_name = pdf_name
@@ -117,6 +122,7 @@ class PCAPlotter:
         self.quickplot = quickplot
         self.draw_envelope = draw_envelope
         self.use_phi_plus_pi = use_phi_plus_pi
+        self.tell_me_phi_correlation = tell_me_phi_correlation
 
         self.cmap = "hot"
         self.cmin = 0.5
@@ -484,6 +490,9 @@ class PCAPlotter:
 
     def plot1d_pairs(self, pdf: PdfPages):
 
+        if self.tell_me_phi_correlation:
+            return
+
         print("Plotting 1D distributions")
         # self.x_left_test
         # self.x_right_test
@@ -590,6 +599,9 @@ class PCAPlotter:
                     if self.quickplot and dim > 0:
                         break
 
+                    if self.tell_me_phi_correlation and dim != -1:
+                        continue
+
                     # Draw page divider
                     fig, ax = plt.subplots(figsize=(8, 8))
                     ax.text(0.5, 0.5, f"{title}, PCA dim: {dim}",
@@ -618,6 +630,9 @@ class PCAPlotter:
                         numer, denom = np.sum(mask & identical), np.sum(mask)
                         excluded = f"{int(100*numer/denom)}%"
 
+                        if self.tell_me_phi_correlation and feat_name != "phi":
+                            continue
+
                         x = this_diff[feat_mask, feature] if not is_bonus else this_diff_bonus[feat_mask, feature]
                         y = dist[feat_mask]
 
@@ -628,6 +643,9 @@ class PCAPlotter:
                                                 cmin=self.cmin,
                                                 )
                         corr = np.corrcoef(np.abs(x), y)[0, 1] if len(np.unique(x)) > 2 and len(np.unique(y)) > 2 else 0
+                        corr_s = spearmanr(np.abs(x), y)[0] if len(np.unique(x)) > 2 and len(np.unique(y)) > 2 else 0
+                        if self.tell_me_phi_correlation:
+                            print(f"{feat_name}_correlation={corr:.6f}; spearman={corr_s:.8f}; {excluded=}; {comparison=}; {status=}; {dim=}; {feature=};")
 
                         if self.draw_envelope:
                             x_bin_centers, percentile_lo, percentile_hi = get_bounds_of_thing(x, y,
@@ -652,6 +670,9 @@ class PCAPlotter:
 
 
     def plot_pca_components(self, pdf: PdfPages):
+
+        if self.tell_me_phi_correlation:
+            return
 
         # PCA components
         print("Plotting PCA components")
@@ -686,6 +707,9 @@ class PCAPlotter:
 
 
     def plot2d_t5pls(self, pdf: PdfPages):
+
+        if self.tell_me_phi_correlation:
+            return
 
         # setup
         dup, nodup = 0, 1
@@ -758,6 +782,9 @@ class PCAPlotter:
 
 
     def plot2d_singles(self, pdf: PdfPages):
+
+        if self.tell_me_phi_correlation:
+            return
 
         # feature correlation check
         for dim in range(self.n_pca):
