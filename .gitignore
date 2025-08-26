@@ -185,3 +185,4 @@ cython_debug/
 *.gif
 *.root
 *~
+log*.txt
