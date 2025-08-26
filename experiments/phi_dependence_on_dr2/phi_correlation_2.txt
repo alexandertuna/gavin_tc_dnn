@@ -1,0 +1,618 @@
+phi_correlation='event_2000_dr2_norm_0.02'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [9.8043704e-01 1.7133614e-02 2.2126308e-03 2.1082789e-04 4.1062062e-06
+ 1.8798169e-06]
+Explained variance: [6.2810341e+01 1.0976412e+00 1.4174913e-01 1.3506397e-02 2.6305841e-04
+ 1.2042786e-04]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.112312; spearman=0.18209659; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.079328; spearman=0.10352525; excluded='4%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.476493; spearman=0.70951563; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=-0.029557; spearman=-0.02610964; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.05'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [9.7821683e-01 1.8442774e-02 3.2072403e-03 1.3231135e-04 8.2725063e-07
+ 0.0000000e+00]
+Explained variance: [4.9180405e+01 9.2722088e-01 1.6124582e-01 6.6520283e-03 4.1590494e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.130409; spearman=0.19359235; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.019295; spearman=0.02923324; excluded='2%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.415360; spearman=0.64952736; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=-0.062512; spearman=-0.04166249; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.1'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [9.8049235e-01 1.6538786e-02 2.8687643e-03 1.0012882e-04 0.0000000e+00
+ 0.0000000e+00]
+Explained variance: [4.5306007e+01 7.6421440e-01 1.3255815e-01 4.6266927e-03 0.0000000e+00
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.152085; spearman=0.20929497; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=-0.055090; spearman=-0.04539999; excluded='1%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.471160; spearman=0.71327433; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=-0.099751; spearman=-0.06185495; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.2'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [9.8110074e-01 1.5684014e-02 3.1510484e-03 6.2889820e-05 1.2893793e-06
+ 0.0000000e+00]
+Explained variance: [4.1489285e+01 6.6325349e-01 1.3325313e-01 2.6595166e-03 5.4525924e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.173724; spearman=0.23171416; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=-0.130597; spearman=-0.11189859; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.548135; spearman=0.72540462; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=-0.230923; spearman=-0.20473388; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.3'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [9.4790423e-01 4.6920810e-02 5.1106261e-03 6.4112188e-05 1.4679645e-07
+ 0.0000000e+00]
+Explained variance: [7.6323685e+01 3.7779860e+00 4.1149917e-01 5.1622074e-03 1.1819808e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.354409; spearman=0.43434301; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.744306; spearman=0.74301029; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.765013; spearman=0.83341078; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.854788; spearman=0.85905767; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.4'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [4.9874499e-01 4.4257480e-01 5.8678854e-02 8.5420572e-07 4.5491623e-07
+ 0.0000000e+00]
+Explained variance: [2.7322535e+01 2.4245386e+01 3.2145786e+00 4.6795587e-05 2.4921483e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.355123; spearman=0.44489361; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.838892; spearman=0.83812837; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.937479; spearman=0.93672652; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.893280; spearman=0.89214613; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.5'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [6.4937800e-01 2.5390598e-01 9.4154932e-02 2.5608719e-03 1.7859364e-07
+ 0.0000000e+00]
+Explained variance: [5.2592628e+01 2.0563650e+01 7.6255360e+00 2.0740305e-01 1.4464162e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.301087; spearman=0.41135464; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.647779; spearman=0.64140456; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.893077; spearman=0.90753023; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.748481; spearman=0.74365629; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.6'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [0.4136945  0.3652362  0.21577364 0.00529557 0.         0.        ]
+Explained variance: [15.218868   13.436198    7.937815    0.19481184  0.          0.        ]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.297549; spearman=0.38044251; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.511269; spearman=0.50519835; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.946400; spearman=0.94438682; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.526811; spearman=0.50350517; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.7'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [5.6994587e-01 2.6629135e-01 1.6109878e-01 2.6635486e-03 4.6688143e-07
+ 0.0000000e+00]
+Explained variance: [3.5082413e+01 1.6391281e+01 9.9162645e+00 1.6395190e-01 2.8738392e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.269011; spearman=0.40084176; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.783669; spearman=0.77728732; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.747727; spearman=0.86330748; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.832717; spearman=0.83425860; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.8'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [7.2362727e-01 1.4005777e-01 1.3375384e-01 2.5601338e-03 4.6610762e-07
+ 3.6724202e-07]
+Explained variance: [5.3747307e+01 1.0402770e+01 9.9345455e+00 1.9015355e-01 3.4620072e-05
+ 2.7276845e-05]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.263866; spearman=0.35010183; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.580445; spearman=0.57979837; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.929326; spearman=0.91850845; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.784200; spearman=0.77813122; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_0.9'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [7.1289390e-01 1.4971347e-01 1.3485828e-01 2.5231442e-03 1.0650656e-05
+ 5.0400570e-07]
+Explained variance: [4.9420044e+01 1.0378609e+01 9.3487997e+00 1.7491229e-01 7.3833694e-04
+ 3.4939258e-05]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.309377; spearman=0.40833865; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.613804; spearman=0.60702172; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.873849; spearman=0.89822720; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.794911; spearman=0.79173258; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_norm_1.0'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (1900000, 6)
+Embedded PLSs shape: (1900000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (3800000, 6)
+PCA results:
+Explained variance ratio: [3.9621106e-01 3.5400298e-01 2.4490225e-01 4.8815063e-03 1.9057306e-06
+ 2.7405670e-07]
+Explained variance: [1.2190288e+01 1.0891665e+01 7.5349460e+00 1.5019007e-01 5.8633912e-05
+ 8.4319454e-06]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.302607; spearman=0.38150464; excluded='32%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.511660; spearman=0.50760974; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.903626; spearman=0.91233232; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.658249; spearman=0.65149274; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.02'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [9.8185188e-01 1.5493605e-02 2.3929412e-03 2.5647914e-04 5.0142130e-06
+ 1.2741117e-07]
+Explained variance: [6.0342239e+01 9.5219952e-01 1.4706437e-01 1.5762588e-02 3.0816140e-04
+ 7.8303819e-06]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.150146; spearman=0.02651251; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.209519; spearman=0.29651915; excluded='2%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.803913; spearman=0.87660716; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.197130; spearman=0.22411776; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.05'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [9.6922326e-01 2.5175139e-02 5.2962573e-03 3.0488081e-04 3.9073299e-07
+ 0.0000000e+00]
+Explained variance: [3.2595127e+01 8.4664381e-01 1.7811395e-01 1.0253188e-02 1.3140410e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.170790; spearman=0.06176928; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.100973; spearman=0.12872638; excluded='1%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.828871; spearman=0.85126287; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.006367; spearman=0.00051111; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.1'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [9.8093444e-01 1.5781451e-02 3.1761117e-03 1.0760297e-04 2.9624545e-07
+ 0.0000000e+00]
+Explained variance: [4.62766075e+01 7.44506419e-01 1.49836391e-01 5.07628266e-03
+ 1.39756885e-05 0.00000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.191774; spearman=0.06350446; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=-0.007696; spearman=0.00825564; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.848042; spearman=0.85326274; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=-0.040598; spearman=-0.02246004; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.2'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [7.4435818e-01 2.5346372e-01 2.1567866e-03 2.1091624e-05 1.8210027e-07
+ 8.8189118e-08]
+Explained variance: [1.3217107e+02 4.5005978e+01 3.8296720e-01 3.7451088e-03 3.2334414e-05
+ 1.5659194e-05]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.662564; spearman=0.34340770; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.897763; spearman=0.91376075; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.938801; spearman=0.92242445; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.911053; spearman=0.92953855; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.4'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [5.2358383e-01 4.7442934e-01 1.9863555e-03 4.5881180e-07 1.1652559e-07
+ 5.1714650e-09]
+Explained variance: [7.7773529e+01 7.0472084e+01 2.9505470e-01 6.8152243e-05 1.7308797e-05
+ 7.6817327e-07]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.743757; spearman=0.36069957; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.973601; spearman=0.97488051; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.735829; spearman=0.80340793; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.976435; spearman=0.97675706; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.6'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [4.3622351e-01 3.2535785e-01 2.3705098e-01 1.3672539e-03 4.4141689e-07
+ 2.3143988e-08]
+Explained variance: [4.6298241e+01 3.4531601e+01 2.5159220e+01 1.4511243e-01 4.6849436e-05
+ 2.4563690e-06]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.459000; spearman=0.26508022; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.912709; spearman=0.90451929; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.905678; spearman=0.87891427; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.957687; spearman=0.95025420; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_0.8'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [4.3255389e-01 2.8802973e-01 2.7730510e-01 2.1106673e-03 5.7567786e-07
+ 0.0000000e+00]
+Explained variance: [3.9264446e+01 2.6145477e+01 2.5171965e+01 1.9159274e-01 5.2256313e-05
+ 0.0000000e+00]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.517419; spearman=0.25981507; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.906034; spearman=0.89840590; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.960723; spearman=0.92336643; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.934685; spearman=0.92682326; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
+phi_correlation='event_2000_dr2_proj_1.0'
+Loading T5-T5 pairs from pairs_t5t5.pkl
+Loading T5-PLS pairs from pairs_t5pls.pkl
+Loading PLS-PLS pairs from pairs_plspls.pkl
+Choosing dataset for PCA: test
+Loading embedding networks
+Loading model weights from model_weights.pth
+Embedding T5s and PLSs
+Embedded T5s shape: (400000, 6)
+Embedded PLSs shape: (400000, 6)
+Performing PCA on embedded T5s and PLSs
+Combined PCA projection shape: (800000, 6)
+PCA results:
+Explained variance ratio: [3.7878370e-01 3.3532241e-01 2.8361285e-01 2.2763419e-03 3.3347380e-06
+ 1.4328356e-06]
+Explained variance: [3.0378904e+01 2.6893257e+01 2.2746090e+01 1.8256535e-01 2.6744997e-04
+ 1.1491513e-04]
+Principal components shape: (6, 6)
+Plotting T5/T5 and PLS/PLS pairs!
+Plotting t5t5 pairs for status 0
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.443784; spearman=0.25262622; excluded='20%'; comparison='t5t5'; status=0; dim=-1; feature=31;
+Plotting t5t5 pairs for status 1
+Plotting PCA dim -1 for t5t5 pairs
+phi_correlation=0.940980; spearman=0.93597338; excluded='0%'; comparison='t5t5'; status=1; dim=-1; feature=31;
+Plotting plspls pairs for status 0
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.926633; spearman=0.88814976; excluded='0%'; comparison='plspls'; status=0; dim=-1; feature=11;
+Plotting plspls pairs for status 1
+Plotting PCA dim -1 for plspls pairs
+phi_correlation=0.972828; spearman=0.97007436; excluded='0%'; comparison='plspls'; status=1; dim=-1; feature=11;
