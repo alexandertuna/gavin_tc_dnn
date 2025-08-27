@@ -50,6 +50,8 @@ def options():
                         help="Draw envelope around 2d difference plots")
     parser.add_argument("--use_phi_plus_pi", action='store_true',
                         help="Assume (phi, phi+pi) for features instead of cos,sin")
+    parser.add_argument("--use_pls_deltaphi", action="store_true",
+                        help="Flag to include pls deltaphi in features")
     parser.add_argument("--tell_me_phi_correlation", action='store_true',
                         help="Print the correlation between dphi and dembedding")
     return parser.parse_args()
@@ -71,6 +73,7 @@ def main():
                          quickplot=args.quickplot,
                          draw_envelope=args.draw_envelope,
                          use_phi_plus_pi=args.use_phi_plus_pi,
+                         use_pls_deltaphi=args.use_pls_deltaphi,
                          tell_me_phi_correlation=args.tell_me_phi_correlation,
                          )
     plotter.load_data()
@@ -105,6 +108,7 @@ class PCAPlotter:
                  quickplot,
                  draw_envelope,
                  use_phi_plus_pi,
+                 use_pls_deltaphi,
                  tell_me_phi_correlation,
                  ):
 
@@ -122,6 +126,7 @@ class PCAPlotter:
         self.quickplot = quickplot
         self.draw_envelope = draw_envelope
         self.use_phi_plus_pi = use_phi_plus_pi
+        self.use_pls_deltaphi = use_pls_deltaphi
         self.tell_me_phi_correlation = tell_me_phi_correlation
 
         self.cmap = "hot"
@@ -211,7 +216,8 @@ class PCAPlotter:
             checkpoint = torch.load(self.model_weights)
             self.embed_t5.load_state_dict(checkpoint["embed_t5"])
             if checkpoint["embed_pls"]["fc1.weight"].shape[1] == 11:
-                print("INFO: detected pls network has 11 inputs instead of 10")
+                print("INFO: detected pls network has 11 inputs instead of 10. Activating use_deltaphi_pls")
+                self.use_pls_deltaphi = True
                 self.embed_pls = EmbeddingNetpLS(input_dim=11)
             self.embed_pls.load_state_dict(checkpoint["embed_pls"])
         self.embed_t5.eval()
@@ -626,7 +632,7 @@ class PCAPlotter:
                         identical = (np.abs(this_diff[:, feature]) < 1e-5) if not is_bonus else (np.abs(this_diff_bonus[:, feature]) < 1e-5)
 
                         feat_mask = mask & (~identical)
-                        feat_name = feature_name(comparison, feature, is_bonus)
+                        feat_name = self.feature_name(comparison, feature, is_bonus)
                         numer, denom = np.sum(mask & identical), np.sum(mask)
                         excluded = f"{int(100*numer/denom)}%"
 
@@ -799,7 +805,7 @@ class PCAPlotter:
                 for feature in range(n_features):
                     if self.quickplot and feature > 5:
                         break
-                    feat_name = feature_name(name, feature, is_bonus=False)
+                    feat_name = self.feature_name(name, feature, is_bonus=False)
                     this_bins = feature_binning(dim, feat_name)
                     fig, ax = plt.subplots(figsize=(8, 8))
                     _, _, _, im = ax.hist2d(self.proj[slc][:, dim], sample[:, feature], bins=this_bins, cmap=self.cmap, cmin=self.cmin)
@@ -874,36 +880,18 @@ class PCAPlotter:
                 plt.close()
 
 
-    # get t5s
-    # get pls
-    # embed T5s
-    # embed PLSs
-    # perform PCA on embedded T5s and PLSs
-    # Plot T5s in lower dimensions
-    # Plot T5s at low pt, or high eta, or displaced, etc
-    # Look for trends
-    # Look at PCA decomposition
-
-
-def feature_binning(dim: int, feat_name: str):
-    bins = 100
-    if dim == 0 and feat_name == "pT":
-        return [bins, np.linspace(0.4, 5, 100)]
-    elif dim == 1 and feat_name == "pT":
-        return [np.linspace(-3, 2.5, 100), np.linspace(0.4, 5, 100)]
-    elif feat_name == "circleCenterR":
-        if dim == 1:
-            return [np.linspace(-3, 2.5, 100), np.linspace(0, 300, 100)]
-        return [bins, np.linspace(0, 300, 100)]
-    return bins
-
-def feature_name(name: str, feature: int, is_bonus: bool) -> str:
-    if name == "T5" or name == "t5" or name == "t5t5":
-        return feature_name_t5(feature, is_bonus)
-    elif name == "PLS" or name == "pls" or name == "plspls":
-        return feature_name_pls(feature, is_bonus)
-    else:
-        raise ValueError(f"Unknown feature type: {name}")
+    def feature_name(self, name: str, feature: int, is_bonus: bool) -> str:
+        if name == "T5" or name == "t5" or name == "t5t5":
+            return feature_name_t5(feature, is_bonus)
+        elif name == "PLS" or name == "pls" or name == "plspls":
+            if self.use_pls_deltaphi:
+                if feature == 10:
+                    return "dphi(r, p)"
+                elif feature > 10:
+                    return feature_name_pls(feature-1, is_bonus)
+            return feature_name_pls(feature, is_bonus)
+        else:
+            raise ValueError(f"Unknown feature type: {name}")
 
 
 def feature_name_t5(feature: int, is_bonus: bool) -> str:
@@ -1034,6 +1022,20 @@ def feature_name_pls(feature: int, is_bonus: bool) -> str:
 
     else:
         return "FIX MEEEEEEE" # raise ValueError(f"Unknown PLS feature index: {feature}")
+
+
+def feature_binning(dim: int, feat_name: str):
+    bins = 100
+    if dim == 0 and feat_name == "pT":
+        return [bins, np.linspace(0.4, 5, 100)]
+    elif dim == 1 and feat_name == "pT":
+        return [np.linspace(-3, 2.5, 100), np.linspace(0.4, 5, 100)]
+    elif feat_name == "circleCenterR":
+        if dim == 1:
+            return [np.linspace(-3, 2.5, 100), np.linspace(0, 300, 100)]
+        return [bins, np.linspace(0, 300, 100)]
+    return bins
+
 
 def get_bounds_of_thing(x, y, xbins, lo=25, hi=75):
     percentile_lo = []
