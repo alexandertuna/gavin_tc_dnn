@@ -17,7 +17,7 @@ The "official" ttbar PU200 LSTNtuple for training and plotting is `pls_t5_embed.
 A similar dataset can be remade with these commands:
 
 ```bash
-# Tested with CMSSW_15_1_0_pre4
+# Tested with CMSSW_15_1_0_pre2
 lst_make_tracklooper -mcCd;
 lst -i PU200RelVal -n 500 -l -s 32 -v 1 -o pls_t5_embed.root;
 ```
@@ -43,3 +43,12 @@ The following trackingNtuples are also useful for LSTNtuple under different circ
 # For running the cmssw pipeline to produce track efficiency, duplicate rate, and fake rate:
 /ceph/cms/store/user/evourlio/LST/samples/CMSSW_12_2_0_pre2/RelValTTbar_14TeV_CMSSW_12_5_0_pre3/event_3000.root
 ```
+
+## Related code
+
+I added pLS charge, deltaPhi, x, y, z to LSTNtuple in these two pull requests:
+
+- https://github.com/SegmentLinking/cmssw/pull/188
+- https://github.com/SegmentLinking/cmssw/pull/193
+
+They aren't merged (yet) because they'll probably be obsolete after the LSTOD PR is merged.
