@@ -77,10 +77,6 @@ class SimFeatureWriter:
         (self.features_per_event,
          self.displaced_per_event,
          self.sim_indices_per_event) = self.load_t5_features(features_t5)
-        print(self.features_per_event)
-        print(type(self.features_per_event))
-        print(self.features_per_event[0])
-        print(self.features_per_event[0][:, 0])
 
         (self.pls_features_per_event,
          self.pls_sim_indices_per_event) = self.load_pls_features(features_pls)
