@@ -1455,6 +1455,7 @@ def get_phi_and_phi_plus_pi(cos, sin):
 
 class PreprocessorPtEtaPhi:
 
+
     def __init__(self,
                  features_t5: str,
                  features_pls: str,
@@ -1466,6 +1467,7 @@ class PreprocessorPtEtaPhi:
 
         self.test_size = test_size
         self.recalculate_std = recalculate_std
+        self.bonus_features = BONUS_FEATURES
 
         self.std = {
             "t5": np.array([0.92797703, 1.75692403, 0.87761438, 0.87615895, 0.00106961, 4.23340940]),
@@ -1491,35 +1493,45 @@ class PreprocessorPtEtaPhi:
         print(f"Sim T5 features: {self.sim_features_t5.shape}")
         print(f"Sim pLS features: {self.sim_features_pls.shape}")
 
+        # mask
+        self.mask_t5 = self.get_mask(sim_features_t5)
+        self.mask_pls = self.get_mask(sim_features_pls)
+        self.features_t5 = self.features_t5[self.mask_t5]
+        self.features_pls = self.features_pls[self.mask_pls]
+        self.sim_features_t5 = self.sim_features_t5[self.mask_t5]
+        self.sim_features_pls = self.sim_features_pls[self.mask_pls]
+        print(f"After masking: T5 features: {self.features_t5.shape}")
+        print(f"After masking: pLS features: {self.features_pls.shape}")
+        print(f"After masking: Sim T5 features: {self.sim_features_t5.shape}")
+        print(f"After masking: Sim pLS features: {self.sim_features_pls.shape}")
 
-        # print(type(features_per_event))
-        # print(len(features_per_event))
-        # print(len(np.concatenate(features_per_event)))
+        # train/test split
+        (self.features_t5_train, self.features_t5_test,
+         self.sim_features_t5_train, self.sim_features_t5_test,
+        ) = train_test_split(
+            self.features_t5,
+            self.sim_features_t5,
+            test_size=self.test_size,
+            random_state=42,
+            shuffle=True,
+        )
+        (self.features_pls_train, self.features_pls_test,
+         self.sim_features_pls_train, self.sim_features_pls_test,
+        ) = train_test_split(
+            self.features_pls,
+            self.sim_features_pls,
+            test_size=self.test_size,
+            random_state=42,
+            shuffle=True,
+        )
+        print(f"T5 features train: {self.features_t5_train.shape}  test: {self.features_t5_test.shape}")
+        print(f"Sim T5 features train: {self.sim_features_t5_train.shape}  test: {self.sim_features_t5_test.shape}")
+        print(f"pLS features train: {self.features_pls_train.shape}  test: {self.features_pls_test.shape}")
+        print(f"Sim pLS features train: {self.sim_features_pls_train.shape}  test: {self.sim_features_pls_test.shape}")
 
-        # tmp = np.concatenate(load_sim_features(sim_features_t5)["sim_eta"])
-        # print(type(tmp))
-        # print(len(tmp))
 
-
-        # print("")
-        # load_sim_features(self.fname_sim_features_t5)
-        # print("")
-        # load_sim_features(self.fname_sim_features_pls)
-        # print("")
-
-
-        # X_left_train, X_left_test, \
-        # X_right_train, X_right_test, \
-        # y_t5_train, y_t5_test, \
-        # w_t5_train, w_t5_test, \
-        # true_L_train, true_L_test, \
-        # true_R_train, true_R_test = train_test_split(
-        #     X_left, X_right, y, weights_t5, true_L, true_R,
-        #     test_size=self.test_size, random_state=42,
-        #     stratify=y, shuffle=True
-        # )
-
-    def get_mask(self, raw_feats):
+    def get_mask(self, fname):
+        raw_feats = self.get_sim_features_unnormalized(fname)
         mask = (np.abs(raw_feats[:, 0]) < 1.0/MIN_PT_PTETAPHI) & \
                (np.abs(raw_feats[:, 1]) < MAX_ETA_PTETAPHI) & \
                (~np.isnan(raw_feats).any(axis=1))
@@ -1528,7 +1540,7 @@ class PreprocessorPtEtaPhi:
 
     def get_sim_features(self, fname: str, stds: np.ndarray):
         feats = self.get_sim_features_unnormalized(fname)
-        mask = self.get_mask(feats)
+        mask = self.get_mask(fname)
         print(f"Mask / Total: {mask.sum()} / {len(mask)} = {mask.sum()/len(mask)*100:.2f}%")
         means = np.mean(feats[mask], axis=0)
         if self.recalculate_std:
@@ -1538,8 +1550,8 @@ class PreprocessorPtEtaPhi:
             print("68p", ", ".join([f"{v:.8f}" for v in perc68]), " <- we use this")
             print("std", ", ".join([f"{v:.8f}" for v in std]))
             stds = perc68
-        print(f"{os.path.basename(fname)} feature means", means)
-        print(f"{os.path.basename(fname)} feature stddev", stds)
+        # print(f"{os.path.basename(fname)} feature means", means)
+        # print(f"{os.path.basename(fname)} feature stddev", stds)
         # For simplicity: dont bother subtracting mean
         # Check by eye that mean are close to zero relative to std
         return feats / stds
