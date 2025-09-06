@@ -37,6 +37,9 @@ INVALID_SIM_IDX    = -1
 MAX_SIM            = 1000
 MAX_DIS            = 1000
 
+MIN_PT_PTETAPHI = 0.6
+MAX_ETA_PTETAPHI = 2.55
+
 
 def load_root_file(file_path, branches=None, print_branches=False):
     all_branches = {}
@@ -1448,3 +1451,121 @@ def get_phi_and_phi_plus_pi(cos, sin):
     ppi[ppi > np.pi] -= 2 * np.pi
     ppi[ppi < -np.pi] += 2 * np.pi
     return phi, ppi
+
+
+class PreprocessorPtEtaPhi:
+
+    def __init__(self,
+                 features_t5: str,
+                 features_pls: str,
+                 sim_features_t5: str,
+                 sim_features_pls: str,
+                 test_size: float = 0.2,
+                 recalculate_std: bool = False,
+                 ):
+
+        self.test_size = test_size
+        self.recalculate_std = recalculate_std
+
+        self.std = {
+            "t5": np.array([0.92797703, 1.75692403, 0.87761438, 0.87615895, 0.00106961, 4.23340940]),
+            "pls": np.array([1.00261937, 2.34347415, 0.87136757, 0.86940184, 0.00090980, 4.09734344]),
+        }
+
+        print("Getting T5 features")
+        [features_per_event,
+         displaced_per_event,
+         sim_indices_per_event] = load_t5_features(features_t5)
+
+        print("Getting PLS features")
+        [pLS_features_per_event,
+         pLS_sim_indices_per_event] = load_pls_features(features_pls)
+
+        self.features_t5 = np.concatenate(features_per_event)
+        self.features_pls = np.concatenate(pLS_features_per_event)
+        print(f"T5 features: {self.features_t5.shape}")
+        print(f"pLS features: {self.features_pls.shape}")
+
+        self.sim_features_t5 = self.get_sim_features(sim_features_t5, self.std["t5"])
+        self.sim_features_pls = self.get_sim_features(sim_features_pls, self.std["pls"])
+        print(f"Sim T5 features: {self.sim_features_t5.shape}")
+        print(f"Sim pLS features: {self.sim_features_pls.shape}")
+
+
+        # print(type(features_per_event))
+        # print(len(features_per_event))
+        # print(len(np.concatenate(features_per_event)))
+
+        # tmp = np.concatenate(load_sim_features(sim_features_t5)["sim_eta"])
+        # print(type(tmp))
+        # print(len(tmp))
+
+
+        # print("")
+        # load_sim_features(self.fname_sim_features_t5)
+        # print("")
+        # load_sim_features(self.fname_sim_features_pls)
+        # print("")
+
+
+        # X_left_train, X_left_test, \
+        # X_right_train, X_right_test, \
+        # y_t5_train, y_t5_test, \
+        # w_t5_train, w_t5_test, \
+        # true_L_train, true_L_test, \
+        # true_R_train, true_R_test = train_test_split(
+        #     X_left, X_right, y, weights_t5, true_L, true_R,
+        #     test_size=self.test_size, random_state=42,
+        #     stratify=y, shuffle=True
+        # )
+
+    def get_mask(self, raw_feats):
+        mask = (np.abs(raw_feats[:, 0]) < 1.0/MIN_PT_PTETAPHI) & \
+               (np.abs(raw_feats[:, 1]) < MAX_ETA_PTETAPHI) & \
+               (~np.isnan(raw_feats).any(axis=1))
+        return mask
+
+
+    def get_sim_features(self, fname: str, stds: np.ndarray):
+        feats = self.get_sim_features_unnormalized(fname)
+        mask = self.get_mask(feats)
+        print(f"Mask / Total: {mask.sum()} / {len(mask)} = {mask.sum()/len(mask)*100:.2f}%")
+        means = np.mean(feats[mask], axis=0)
+        if self.recalculate_std:
+            print("Recalculating 68-percentile and stddev from data")
+            perc68 = np.percentile(np.abs(feats[mask]), 68, axis=0)
+            std = np.std(feats[mask], axis=0)
+            print("68p", ", ".join([f"{v:.8f}" for v in perc68]), " <- we use this")
+            print("std", ", ".join([f"{v:.8f}" for v in std]))
+            stds = perc68
+        print(f"{os.path.basename(fname)} feature means", means)
+        print(f"{os.path.basename(fname)} feature stddev", stds)
+        # For simplicity: dont bother subtracting mean
+        # Check by eye that mean are close to zero relative to std
+        return feats / stds
+
+
+    def get_sim_features_unnormalized(self, fname: str):
+        feats = load_sim_features(fname)
+        print(f"{os.path.basename(fname)} has keys {feats.keys()}")
+        sim_pt = np.concatenate(feats["sim_pt"])
+        sim_eta = np.concatenate(feats["sim_eta"])
+        sim_phi = np.concatenate(feats["sim_phi"])
+        sim_pca_dxy = np.concatenate(feats["sim_pca_dxy"])
+        sim_pca_dz = np.concatenate(feats["sim_pca_dz"])
+        sim_q = np.concatenate(feats["sim_q"])
+        return np.column_stack((
+            sim_q / sim_pt,
+            sim_eta,
+            np.cos(sim_phi),
+            np.sin(sim_phi),
+            sim_pca_dxy,
+            sim_pca_dz,
+        ))
+
+
+def load_sim_features(fname: str):
+    with open(fname, "rb") as fi:
+        data = pickle.load(fi)
+        return data["sim_features"]
+
