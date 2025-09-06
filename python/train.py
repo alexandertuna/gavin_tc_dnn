@@ -444,3 +444,97 @@ def print_model_weights_biases(model):
 
             # Print formatted weights and biases
             print_formatted_weights_biases(weights, biases, name.replace('.', '_'))
+
+
+class TrainerPtEtaPhi:
+
+    def __init__(self,
+                 seed: int,
+                 num_epochs: int,
+                 use_scheduler: bool,
+                 bonus_features: int,
+                 # ------------
+                 features_t5_train,
+                 features_t5_test,
+                 features_pls_train,
+                 features_pls_test,
+                 sim_features_t5_train,
+                 sim_features_t5_test,
+                 sim_features_pls_train,
+                 sim_features_pls_test,
+                 ):
+
+        if seed is not None:
+            torch.manual_seed(seed)
+            os.environ["PYTHONHASHSEED"] = str(seed)
+
+        self.num_epochs = num_epochs
+        self.use_scheduler = use_scheduler
+
+        def remove_bonus_features(X):
+            return X[:, :-bonus_features] if bonus_features > 0 else X
+        self.features_t5_train      = remove_bonus_features(features_t5_train)
+        self.features_t5_test       = remove_bonus_features(features_t5_test)
+        self.features_pls_train     = remove_bonus_features(features_pls_train)
+        self.features_pls_test      = remove_bonus_features(features_pls_test)
+        self.sim_features_t5_train  = remove_bonus_features(sim_features_t5_train)
+        self.sim_features_t5_test   = remove_bonus_features(sim_features_t5_test)
+        self.sim_features_pls_train = remove_bonus_features(sim_features_pls_train)
+        self.sim_features_pls_test  = remove_bonus_features(sim_features_pls_test)
+
+        # print("Creating datasets ...")
+        # train_t5_ds = SiameseDataset(X_left_train, X_right_train, y_t5_train, w_t5_train)
+        # test_t5_ds  = SiameseDataset(X_left_test,  X_right_test,  y_t5_test,  w_t5_test)
+
+        # train_pls_ds = PLST5Dataset(X_pls_train, X_t5raw_train, y_pls_train, w_pls_train)
+        # test_pls_ds  = PLST5Dataset(X_pls_test,  X_t5raw_test,  y_pls_test,  w_pls_test)
+
+        # batch_size = 1024
+        # num_workers = min(os.cpu_count() or 4, 8)
+
+        # print("Creating loaders ...")
+        # self.train_t5_loader = DataLoader(train_t5_ds, batch_size, shuffle=True,
+        #                                   num_workers=num_workers, pin_memory=True)
+        # self.test_t5_loader  = DataLoader(test_t5_ds,  batch_size, shuffle=False,
+        #                                   num_workers=num_workers, pin_memory=True)
+        # self.train_pls_loader = DataLoader(train_pls_ds, batch_size, shuffle=True,
+        #                                    num_workers=num_workers, pin_memory=True)
+        # self.test_pls_loader  = DataLoader(test_pls_ds,  batch_size, shuffle=False,
+        #                                    num_workers=num_workers, pin_memory=True)
+
+        # print("Loaders ready:",
+        #     f"T5 train {len(train_t5_ds)}, pLS-T5 train {len(train_pls_ds)}")
+
+        # # contrastive loss (reuse)
+        # self.criterion = ContrastiveLoss(margin=1.0)
+
+        # # instantiate and send to GPU/CPU
+        # print("Creating embedding networks ...")
+        # pls_input_dim = 11 if use_pls_deltaphi else 10
+        # self.embed_t5 = EmbeddingNetT5(emb_dim=emb_dim).to(DEVICE)
+        # self.embed_pls = EmbeddingNetpLS(emb_dim=emb_dim, input_dim=pls_input_dim).to(DEVICE)
+
+        # # joint optimizer over both nets
+        # print("Creating optimizer ...")
+        # self.optimizer = optim.Adam(
+        #     list(self.embed_t5.parameters()) + list(self.embed_pls.parameters()),
+        #     lr=0.0025
+        # )
+
+        # # create scheduler (optional)
+        # n_steps = min(len(self.train_t5_loader), len(self.train_pls_loader))
+        # print(f"Settings: train for {self.num_epochs} epochs with {n_steps} steps per epoch")
+        # if self.use_scheduler:
+        #     self.scheduler = optim.lr_scheduler.OneCycleLR(
+        #         self.optimizer,
+        #         max_lr=0.0025,
+        #         total_steps=self.num_epochs * n_steps,
+        #         pct_start=0.1,
+        #         anneal_strategy='cos',
+        #         div_factor=10,
+        #         final_div_factor=1e3,
+        #     )
+        # else:
+        #     self.scheduler = None
+
+
