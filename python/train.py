@@ -605,21 +605,18 @@ class TrainerPtEtaPhi:
             avg_loss_t5 = total_loss_t5 / len(self.train_t5_loader)
             avg_loss_pls = total_loss_pls / len(self.train_pls_loader)
 
+            test_loss_t5, test_loss_pls = self.get_test_losses()
+
             summary = " ".join([
                 f"Epoch {epoch}/{self.num_epochs}:",
-                f"T5 loss={avg_loss_t5:.4f}",
-                f"pLS loss={avg_loss_pls:.4f}",
-                f"T5 LR={self.optimizer_t5.param_groups[0]['lr']:.6f}",
+                f"T5 loss={avg_loss_t5:.4f},",
+                f"pLS loss={avg_loss_pls:.4f},",
+                f"T5 test loss={test_loss_t5:.4f},",
+                f"pLS test loss={test_loss_pls:.4f},",
+                f"T5 LR={self.optimizer_t5.param_groups[0]['lr']:.6f},",
                 f"pLS LR={self.optimizer_pls.param_groups[0]['lr']:.6f}",
-                # "\n",
             ])
             tqdm.write(summary)
-            # pbar.set_description(summary, refresh=False)
-            # print(f"Epoch {epoch}/{self.num_epochs}:",
-            #       f"T5-loss={avg_loss_t5:.4f}",
-            #       f"pLS-loss={avg_loss_pls:.4f}",
-            #       f"LR-T5={self.optimizer_t5.param_groups[0]['lr']:.6f}",
-            #       f"LR-pLS={self.optimizer_pls.param_groups[0]['lr']:.6f}")
 
             self.losses_t5.append(avg_loss_t5)
             self.losses_pls.append(avg_loss_pls)
@@ -627,6 +624,38 @@ class TrainerPtEtaPhi:
         # disable training mode
         self.embed_t5.eval()
         self.embed_pls.eval()
+
+
+    def get_test_losses(self):
+        # calculate test loss
+        with torch.no_grad():
+            mse_loss_t5 = nn.MSELoss(reduction="mean")
+            mse_loss_pls = nn.MSELoss(reduction="mean")
+
+            total_loss_t5 = 0.0
+            total_loss_pls = 0.0
+            self.embed_t5.eval()
+            self.embed_pls.eval()
+
+            for x_t5, y_t5 in self.test_t5_loader:
+                x_t5 = x_t5.to(DEVICE)
+                y_t5 = y_t5.to(DEVICE)
+                pred = self.embed_t5(x_t5)
+                loss = mse_loss_t5(pred[:, :4], y_t5[:, :4])
+                total_loss_t5 += loss.item()
+
+            for x_pls, y_pls in self.test_pls_loader:
+                x_pls = x_pls.to(DEVICE)
+                y_pls = y_pls.to(DEVICE)
+                pred = self.embed_pls(x_pls)
+                loss = mse_loss_pls(pred[:, :4], y_pls[:, :4])
+                total_loss_pls += loss.item()
+
+            avg_loss_t5 = total_loss_t5 / len(self.test_t5_loader)
+            avg_loss_pls = total_loss_pls / len(self.test_pls_loader)
+
+            return avg_loss_t5, avg_loss_pls
+
 
     def save(self, path: Path):
         print(f"Saving model to {path}")
