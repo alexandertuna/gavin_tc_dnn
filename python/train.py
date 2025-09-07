@@ -1,5 +1,6 @@
 import os
 import time
+from tqdm import tqdm
 from pathlib import Path
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -13,6 +14,7 @@ from matplotlib.colors import LogNorm
 from matplotlib.backends.backend_pdf import PdfPages
 
 from ml import SiameseDataset, PLST5Dataset, EmbeddingNetT5, EmbeddingNetpLS, ContrastiveLoss
+from ml import BasicDataset, PtEtaPhiNetT5, PtEtaPhiNetpLS
 
 ETA_MAX = 2.5
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -468,6 +470,8 @@ class TrainerPtEtaPhi:
             torch.manual_seed(seed)
             os.environ["PYTHONHASHSEED"] = str(seed)
 
+        self.emb_dim = 6
+        self.lr = 0.0025
         self.num_epochs = num_epochs
         self.use_scheduler = use_scheduler
 
@@ -477,64 +481,169 @@ class TrainerPtEtaPhi:
         self.features_t5_test       = remove_bonus_features(features_t5_test)
         self.features_pls_train     = remove_bonus_features(features_pls_train)
         self.features_pls_test      = remove_bonus_features(features_pls_test)
-        self.sim_features_t5_train  = remove_bonus_features(sim_features_t5_train)
-        self.sim_features_t5_test   = remove_bonus_features(sim_features_t5_test)
-        self.sim_features_pls_train = remove_bonus_features(sim_features_pls_train)
-        self.sim_features_pls_test  = remove_bonus_features(sim_features_pls_test)
+        self.sim_features_t5_train  = sim_features_t5_train
+        self.sim_features_t5_test   = sim_features_t5_test
+        self.sim_features_pls_train = sim_features_pls_train
+        self.sim_features_pls_test  = sim_features_pls_test
 
         # print("Creating datasets ...")
-        # train_t5_ds = SiameseDataset(X_left_train, X_right_train, y_t5_train, w_t5_train)
-        # test_t5_ds  = SiameseDataset(X_left_test,  X_right_test,  y_t5_test,  w_t5_test)
+        train_t5_ds = BasicDataset(self.features_t5_train, self.sim_features_t5_train)
+        test_t5_ds  = BasicDataset(self.features_t5_test,  self.sim_features_t5_test)
+        train_pls_ds = BasicDataset(self.features_pls_train, self.sim_features_pls_train)
+        test_pls_ds  = BasicDataset(self.features_pls_test,  self.sim_features_pls_test)
 
-        # train_pls_ds = PLST5Dataset(X_pls_train, X_t5raw_train, y_pls_train, w_pls_train)
-        # test_pls_ds  = PLST5Dataset(X_pls_test,  X_t5raw_test,  y_pls_test,  w_pls_test)
+        batch_size = 1024
+        num_workers = min(os.cpu_count() or 4, 8)
 
-        # batch_size = 1024
-        # num_workers = min(os.cpu_count() or 4, 8)
+        print("Creating loaders ...")
+        args = {"batch_size": batch_size,
+                "num_workers": num_workers,
+                "pin_memory": torch.cuda.is_available(),
+                }
+        self.train_t5_loader = DataLoader(train_t5_ds, **args, shuffle=True)
+        self.test_t5_loader  = DataLoader(test_t5_ds,  **args, shuffle=False)
+        self.train_pls_loader = DataLoader(train_pls_ds, **args, shuffle=True)
+        self.test_pls_loader  = DataLoader(test_pls_ds,  **args, shuffle=False)
+        print(f"Loaders ready: T5 train {len(train_t5_ds)}, pLS train {len(train_pls_ds)}")
+        print(f"Loaders ready: T5 test {len(test_t5_ds)}, pLS test {len(test_pls_ds)}")
 
-        # print("Creating loaders ...")
-        # self.train_t5_loader = DataLoader(train_t5_ds, batch_size, shuffle=True,
-        #                                   num_workers=num_workers, pin_memory=True)
-        # self.test_t5_loader  = DataLoader(test_t5_ds,  batch_size, shuffle=False,
-        #                                   num_workers=num_workers, pin_memory=True)
-        # self.train_pls_loader = DataLoader(train_pls_ds, batch_size, shuffle=True,
-        #                                    num_workers=num_workers, pin_memory=True)
-        # self.test_pls_loader  = DataLoader(test_pls_ds,  batch_size, shuffle=False,
-        #                                    num_workers=num_workers, pin_memory=True)
+        # instantiate and send to GPU/CPU
+        print("Creating regression networks ...")
+        self.embed_t5 = PtEtaPhiNetT5(emb_dim=self.emb_dim).to(DEVICE)
+        self.embed_pls = PtEtaPhiNetpLS(emb_dim=self.emb_dim).to(DEVICE)
 
-        # print("Loaders ready:",
-        #     f"T5 train {len(train_t5_ds)}, pLS-T5 train {len(train_pls_ds)}")
+        # optimizer for each net
+        print("Creating T5 optimizer ...")
+        self.optimizer_t5 = optim.Adam(
+            self.embed_t5.parameters(),
+            lr=self.lr
+        )
+        print("Creating pLS optimizer ...")
+        self.optimizer_pls = optim.Adam(
+            self.embed_pls.parameters(),
+            lr=self.lr
+        )
 
-        # # contrastive loss (reuse)
-        # self.criterion = ContrastiveLoss(margin=1.0)
-
-        # # instantiate and send to GPU/CPU
-        # print("Creating embedding networks ...")
-        # pls_input_dim = 11 if use_pls_deltaphi else 10
-        # self.embed_t5 = EmbeddingNetT5(emb_dim=emb_dim).to(DEVICE)
-        # self.embed_pls = EmbeddingNetpLS(emb_dim=emb_dim, input_dim=pls_input_dim).to(DEVICE)
-
-        # # joint optimizer over both nets
-        # print("Creating optimizer ...")
-        # self.optimizer = optim.Adam(
-        #     list(self.embed_t5.parameters()) + list(self.embed_pls.parameters()),
-        #     lr=0.0025
-        # )
-
-        # # create scheduler (optional)
-        # n_steps = min(len(self.train_t5_loader), len(self.train_pls_loader))
-        # print(f"Settings: train for {self.num_epochs} epochs with {n_steps} steps per epoch")
-        # if self.use_scheduler:
-        #     self.scheduler = optim.lr_scheduler.OneCycleLR(
-        #         self.optimizer,
-        #         max_lr=0.0025,
-        #         total_steps=self.num_epochs * n_steps,
-        #         pct_start=0.1,
-        #         anneal_strategy='cos',
-        #         div_factor=10,
-        #         final_div_factor=1e3,
-        #     )
-        # else:
-        #     self.scheduler = None
+        # create scheduler (optional)
+        n_steps_t5 = len(self.train_t5_loader)
+        n_steps_pls = len(self.train_pls_loader)
+        print(f"Settings: train for {self.num_epochs} epochs with {n_steps_t5=} and {n_steps_pls=} steps per epoch")
+        if self.use_scheduler:
+            self.scheduler_t5 = optim.lr_scheduler.OneCycleLR(
+                self.optimizer_t5,
+                max_lr=0.0025,
+                total_steps=self.num_epochs * n_steps_t5,
+                pct_start=0.1,
+                anneal_strategy='cos',
+                div_factor=10,
+                final_div_factor=1e3,
+            )
+            self.scheduler_pls = optim.lr_scheduler.OneCycleLR(
+                self.optimizer_pls,
+                max_lr=0.0025,
+                total_steps=self.num_epochs * n_steps_pls,
+                pct_start=0.1,
+                anneal_strategy='cos',
+                div_factor=10,
+                final_div_factor=1e3,
+            )
+        else:
+            self.scheduler_t5 = None
+            self.scheduler_pls = None
 
 
+    def train(self):
+        print(time.strftime("Time: %Y-%m-%d %H:%M:%S", time.localtime()))
+        self.losses_t5 = []
+        self.losses_pls = []
+
+        mse_loss_t5 = nn.MSELoss(reduction="mean")
+        mse_loss_pls = nn.MSELoss(reduction="mean")
+
+        # pbar = tqdm(range(1, self.num_epochs+1))
+
+        for epoch in tqdm(range(1, self.num_epochs+1)):
+            self.embed_t5.train()
+            self.embed_pls.train()
+            total_loss_t5 = 0.0
+            total_loss_pls = 0.0
+
+            for it, (x_t5, y_t5) in enumerate(self.train_t5_loader):
+                x_t5 = x_t5.to(DEVICE)
+                y_t5 = y_t5.to(DEVICE)
+                pred = self.embed_t5(x_t5)
+                loss = mse_loss_t5(pred[:, :4], y_t5[:, :4])
+                # if it == 0:
+                #     with torch.no_grad():
+                #         print("")
+                #         print("pred\n", pred[:5, :].cpu().numpy())
+                #         print("y_t5\n", y_t5[:5, :].cpu().numpy())
+                #         print("loss\n", loss.shape)
+                #         print("loss\n", loss)
+                #         print("")
+
+                self.optimizer_t5.zero_grad()
+                loss.backward()
+                self.optimizer_t5.step()
+                if self.use_scheduler:
+                    self.scheduler_t5.step()
+                total_loss_t5 += loss.item()
+
+            for it, (x_pls, y_pls) in enumerate(self.train_pls_loader):
+                x_pls = x_pls.to(DEVICE)
+                y_pls = y_pls.to(DEVICE)
+                pred = self.embed_pls(x_pls)
+                loss = mse_loss_pls(pred[:, :4], y_pls[:, :4])
+
+                self.optimizer_pls.zero_grad()
+                loss.backward()
+                self.optimizer_pls.step()
+                if self.use_scheduler:
+                    self.scheduler_pls.step()
+                total_loss_pls += loss.item()
+
+            avg_loss_t5 = total_loss_t5 / len(self.train_t5_loader)
+            avg_loss_pls = total_loss_pls / len(self.train_pls_loader)
+
+            summary = " ".join([
+                f"Epoch {epoch}/{self.num_epochs}:",
+                f"T5 loss={avg_loss_t5:.4f}",
+                f"pLS loss={avg_loss_pls:.4f}",
+                f"T5 LR={self.optimizer_t5.param_groups[0]['lr']:.6f}",
+                f"pLS LR={self.optimizer_pls.param_groups[0]['lr']:.6f}",
+                # "\n",
+            ])
+            tqdm.write(summary)
+            # pbar.set_description(summary, refresh=False)
+            # print(f"Epoch {epoch}/{self.num_epochs}:",
+            #       f"T5-loss={avg_loss_t5:.4f}",
+            #       f"pLS-loss={avg_loss_pls:.4f}",
+            #       f"LR-T5={self.optimizer_t5.param_groups[0]['lr']:.6f}",
+            #       f"LR-pLS={self.optimizer_pls.param_groups[0]['lr']:.6f}")
+
+            self.losses_t5.append(avg_loss_t5)
+            self.losses_pls.append(avg_loss_pls)
+
+        # disable training mode
+        self.embed_t5.eval()
+        self.embed_pls.eval()
+
+    def save(self, path: Path):
+        print(f"Saving model to {path}")
+        torch.save({
+            'embed_t5': self.embed_t5.state_dict(),
+            'embed_pls': self.embed_pls.state_dict(),
+            'optimizer_t5': self.optimizer_t5.state_dict(),
+            'optimizer_pls': self.optimizer_pls.state_dict()
+        }, path)
+
+
+    def load(self, path):
+        print(f"Loading model from {path}")
+        checkpoint = torch.load(path) # map_location=DEVICE
+        self.embed_t5.load_state_dict(checkpoint['embed_t5'])
+        self.embed_pls.load_state_dict(checkpoint['embed_pls'])
+        self.optimizer_t5.load_state_dict(checkpoint['optimizer_t5'])
+        self.optimizer_pls.load_state_dict(checkpoint['optimizer_pls'])
+        self.embed_t5.to(DEVICE)
+        self.embed_pls.to(DEVICE)
