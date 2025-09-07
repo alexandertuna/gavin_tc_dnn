@@ -201,13 +201,35 @@ class SimFeatureWriter:
             print(f"Plotting {coll} sim features ...")
             color = "blue" if coll == "T5" else "red"
             for br in BRANCHES:
+                bins = 100
+                if "sim_pca_dxy" in br:
+                    xmax = 0.005 if coll == "T5" else 0.005
+                    # xmax = 0.5 if coll == "T5" else 0.5
+                    bins = np.linspace(-xmax, xmax, 101)
+                elif "sim_pca_dz" in br:
+                    xmax = 20 if coll == "T5" else 20
+                    bins = np.linspace(-xmax, xmax, 101)
                 fig, ax = plt.subplots(figsize=(8, 8))
-                ax.hist(np.concatenate(sim_features[br]), bins=100, color=color)
+                ax.hist(np.concatenate(sim_features[br]), bins=bins, color=color)
                 ax.set_title(f"Matched to {coll} tracks")
                 ax.set_xlabel(br)
                 ax.set_ylabel("Tracks")
                 pdf.savefig(fig)
+                if "sim_pca_" in br:
+                    ax.semilogy()
+                    pdf.savefig(fig)
                 plt.close(fig)
+
+            # bonus plots: q/pt
+            bins = np.linspace(-2, 2, 101)
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.hist(np.concatenate(sim_features["sim_q"]) / np.concatenate(sim_features["sim_pt"]),
+                    bins=bins, color=color)
+            ax.set_title(f"Matched to {coll} tracks")
+            ax.set_xlabel("sim_q / sim_pt")
+            ax.set_ylabel("Tracks")
+            pdf.savefig(fig)
+            plt.close(fig)
 
 
     def write(self):
