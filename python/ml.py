@@ -98,3 +98,40 @@ class ContrastiveLoss(nn.Module):
         if weight is not None:
             loss = loss * weight
         return loss.mean()
+
+
+class BasicDataset(Dataset):
+
+    def __init__(self, x: np.array, y: np.array):
+        self.x = torch.from_numpy(x.astype(np.float32))
+        self.y = torch.from_numpy(y.astype(np.float32))
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
+
+
+class PtEtaPhiNetT5(nn.Module):
+    def __init__(self, input_dim=30, emb_dim=6):
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim, NODES); self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(NODES, NODES);     self.relu2 = nn.ReLU()
+        self.fc3 = nn.Linear(NODES, emb_dim)
+    def forward(self, x):
+        x = self.relu1(self.fc1(x))
+        x = self.relu2(self.fc2(x))
+        return self.fc3(x)
+
+
+class PtEtaPhiNetpLS(nn.Module):
+    def __init__(self, input_dim=10, emb_dim=6):
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim, NODES); self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(NODES, NODES);     self.relu2 = nn.ReLU()
+        self.fc3 = nn.Linear(NODES, emb_dim)
+    def forward(self, x):
+        x = self.relu1(self.fc1(x))
+        x = self.relu2(self.fc2(x))
+        return self.fc3(x)
