@@ -454,6 +454,7 @@ class TrainerPtEtaPhi:
                  seed: int,
                  num_epochs: int,
                  use_scheduler: bool,
+                 use_dxy_dz: bool,
                  bonus_features: int,
                  # ------------
                  features_t5_train,
@@ -470,10 +471,13 @@ class TrainerPtEtaPhi:
             torch.manual_seed(seed)
             os.environ["PYTHONHASHSEED"] = str(seed)
 
-        self.emb_dim = 6
+        self.emb_dim = 6 if use_dxy_dz else 4
         self.lr = 0.0025
         self.num_epochs = num_epochs
         self.use_scheduler = use_scheduler
+        self.use_dxy_dz = use_dxy_dz
+        print(f"Using seed {seed}, num_epochs {num_epochs}, use_scheduler {use_scheduler}")
+        print(f"Using dxy and dz features: {self.use_dxy_dz}")
 
         def remove_bonus_features(X):
             return X[:, :-bonus_features] if bonus_features > 0 else X
@@ -485,8 +489,21 @@ class TrainerPtEtaPhi:
         self.sim_features_t5_test   = sim_features_t5_test
         self.sim_features_pls_train = sim_features_pls_train
         self.sim_features_pls_test  = sim_features_pls_test
+        if any([self.sim_features_t5_train.shape[1] != self.emb_dim,
+                self.sim_features_t5_test.shape[1] != self.emb_dim,
+                self.sim_features_pls_train.shape[1] != self.emb_dim,
+                self.sim_features_pls_test.shape[1] != self.emb_dim]):
+            print(f"Error: sim features have wrong dimension, expected {self.emb_dim}")
 
-        # print("Creating datasets ...")
+        if not self.use_dxy_dz:
+            print("Removing dxy and dz features ...")
+            # remove last two sim features (dxy, dz)
+            self.sim_features_t5_train  = self.sim_features_t5_train[:, :-2]
+            self.sim_features_t5_test   = self.sim_features_t5_test[:, :-2]
+            self.sim_features_pls_train = self.sim_features_pls_train[:, :-2]
+            self.sim_features_pls_test  = self.sim_features_pls_test[:, :-2]
+
+        print("Creating datasets ...")
         train_t5_ds = BasicDataset(self.features_t5_train, self.sim_features_t5_train)
         test_t5_ds  = BasicDataset(self.features_t5_test,  self.sim_features_t5_test)
         train_pls_ds = BasicDataset(self.features_pls_train, self.sim_features_pls_train)
@@ -560,8 +577,6 @@ class TrainerPtEtaPhi:
         mse_loss_t5 = nn.MSELoss(reduction="mean")
         mse_loss_pls = nn.MSELoss(reduction="mean")
 
-        # pbar = tqdm(range(1, self.num_epochs+1))
-
         for epoch in tqdm(range(1, self.num_epochs+1)):
             self.embed_t5.train()
             self.embed_pls.train()
@@ -572,7 +587,7 @@ class TrainerPtEtaPhi:
                 x_t5 = x_t5.to(DEVICE)
                 y_t5 = y_t5.to(DEVICE)
                 pred = self.embed_t5(x_t5)
-                loss = mse_loss_t5(pred[:, :4], y_t5[:, :4])
+                loss = mse_loss_t5(pred, y_t5)
                 # if it == 0:
                 #     with torch.no_grad():
                 #         print("")
@@ -580,6 +595,10 @@ class TrainerPtEtaPhi:
                 #         print("y_t5\n", y_t5[:5, :].cpu().numpy())
                 #         print("loss\n", loss.shape)
                 #         print("loss\n", loss)
+                #         # diff2 = (pred.cpu().numpy() - y_t5.cpu().numpy()) ** 2
+                #         # print("diff2 mean:", diff2.flatten().sum() / len(diff2.flatten()))
+                #         # reproduce mse loss calculation
+                #         print("diff2 mean:", ((pred - y_t5) ** 2).mean().item())
                 #         print("")
 
                 self.optimizer_t5.zero_grad()
@@ -593,7 +612,7 @@ class TrainerPtEtaPhi:
                 x_pls = x_pls.to(DEVICE)
                 y_pls = y_pls.to(DEVICE)
                 pred = self.embed_pls(x_pls)
-                loss = mse_loss_pls(pred[:, :4], y_pls[:, :4])
+                loss = mse_loss_pls(pred, y_pls)
 
                 self.optimizer_pls.zero_grad()
                 loss.backward()
@@ -641,14 +660,14 @@ class TrainerPtEtaPhi:
                 x_t5 = x_t5.to(DEVICE)
                 y_t5 = y_t5.to(DEVICE)
                 pred = self.embed_t5(x_t5)
-                loss = mse_loss_t5(pred[:, :4], y_t5[:, :4])
+                loss = mse_loss_t5(pred, y_t5)
                 total_loss_t5 += loss.item()
 
             for x_pls, y_pls in self.test_pls_loader:
                 x_pls = x_pls.to(DEVICE)
                 y_pls = y_pls.to(DEVICE)
                 pred = self.embed_pls(x_pls)
-                loss = mse_loss_pls(pred[:, :4], y_pls[:, :4])
+                loss = mse_loss_pls(pred, y_pls)
                 total_loss_pls += loss.item()
 
             avg_loss_t5 = total_loss_t5 / len(self.test_t5_loader)

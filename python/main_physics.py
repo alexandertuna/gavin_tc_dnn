@@ -10,15 +10,14 @@ from pathlib import Path
 
 
 def options():
-    default_dir = "/ceph/users/atuna/work/gavin_tc_dnn/experiments/embed_ptetaphi"
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--features_t5", type=str, default=f"{default_dir}/features_t5.pkl",
+    parser.add_argument("--features_t5", type=str, default=f"features_t5.pkl",
                         help="Path to the precomputed T5 features file")
-    parser.add_argument("--features_pls", type=str, default=f"{default_dir}/features_pls.pkl",
+    parser.add_argument("--features_pls", type=str, default=f"features_pls.pkl",
                         help="Path to the precomputed PLS features file")
-    parser.add_argument("--sim_features_t5", type=str, default=f"{default_dir}/sim_features_t5.pkl",
+    parser.add_argument("--sim_features_t5", type=str, default=f"sim_features_t5.pkl",
                         help="Path to the precomputed T5 sim features file")
-    parser.add_argument("--sim_features_pls", type=str, default=f"{default_dir}/sim_features_pls.pkl",
+    parser.add_argument("--sim_features_pls", type=str, default=f"sim_features_pls.pkl",
                         help="Path to the precomputed PLS sim features file")
     parser.add_argument("--model", type=str, default="model_weights_ptetaphi.pth",
                         help="Path to save or load the model weights")
@@ -42,6 +41,8 @@ def options():
                         help="Load model weights from the specified path instead of training")
     parser.add_argument("--load_embedding_model", action="store_true",
                         help="Load Gavin embedding model weights from the specified path instead of training")
+    parser.add_argument("--use_dxy_dz", action="store_true",
+                        help="Use dxy and dz features in addition to pt, eta, phi")
     return parser.parse_args()
 
 
@@ -66,9 +67,10 @@ def main():
     trainer = TrainerPtEtaPhi(seed=args.seed,
                               num_epochs=args.num_epochs,
                               use_scheduler=args.use_scheduler,
+                              use_dxy_dz=args.use_dxy_dz,
                               # --------------------
                               bonus_features=processor.bonus_features,
-                                # --------------------
+                              # --------------------
                               features_t5_train=processor.features_t5_train,
                               features_t5_test=processor.features_t5_test,
                               features_pls_train=processor.features_pls_train,
@@ -137,11 +139,12 @@ def main():
         train_emb.load(args.embedding_model)
 
 
-    plotter = PlotterPtEtaPhi(trainer, train_emb)
+    plotter = PlotterPtEtaPhi(trainer,
+                              train_emb,
+                              use_dxy_dz=args.use_dxy_dz,
+                              )
     plotter.plot(pdf_path)
 
-    # inspector = InspectT5T5(processor, trainer)
-    # inspector.inspect()
 
 if __name__ == "__main__":
     main()

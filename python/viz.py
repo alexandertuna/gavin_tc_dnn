@@ -393,9 +393,17 @@ class Plotter:
 class PlotterPtEtaPhi:
 
 
-    def __init__(self, trainer, train_emb):
+    def __init__(self,
+                 trainer,
+                 train_emb,
+                 use_dxy_dz: bool,
+                 ):
         self.trainer = trainer
         self.train_emb = train_emb
+        self.use_dxy_dz = use_dxy_dz
+        self.columns = ["qoverpt", "eta", "cosphi", "sinphi", "pca_dxy", "pca_dz"]
+        if not self.use_dxy_dz:
+            self.columns = self.columns[:-2]
         self.embed_test_data()
         self.make_dataframes()
 
@@ -422,16 +430,14 @@ class PlotterPtEtaPhi:
 
 
     def make_dataframes_sim_features(self):
-        columns = ["qoverpt", "eta", "cosphi", "sinphi", "pca_dxy", "pca_dz"]
-        self.df_sim_t5 = pd.DataFrame(self.trainer.sim_features_t5_test, columns=columns)
-        self.df_sim_pls = pd.DataFrame(self.trainer.sim_features_pls_test, columns=columns)
+        self.df_sim_t5 = pd.DataFrame(self.trainer.sim_features_t5_test, columns=self.columns)
+        self.df_sim_pls = pd.DataFrame(self.trainer.sim_features_pls_test, columns=self.columns)
         self.df_sim_t5["phi"] = np.arctan2(self.df_sim_t5["sinphi"], self.df_sim_t5["cosphi"])
         self.df_sim_pls["phi"] = np.arctan2(self.df_sim_pls["sinphi"], self.df_sim_pls["cosphi"])
 
     def make_dataframes_embeddings(self):
-        columns = ["qoverpt", "eta", "cosphi", "sinphi", "pca_dxy", "pca_dz"]
-        self.df_emb_t5 = pd.DataFrame(self.emb_t5_test.numpy(), columns=columns)
-        self.df_emb_pls = pd.DataFrame(self.emb_pls_test.numpy(), columns=columns)
+        self.df_emb_t5 = pd.DataFrame(self.emb_t5_test.numpy(), columns=self.columns)
+        self.df_emb_pls = pd.DataFrame(self.emb_pls_test.numpy(), columns=self.columns)
         self.df_emb_t5["phi"] = np.arctan2(self.df_emb_t5["sinphi"], self.df_emb_t5["cosphi"])
         self.df_emb_pls["phi"] = np.arctan2(self.df_emb_pls["sinphi"], self.df_emb_pls["cosphi"])
 
@@ -477,7 +483,7 @@ class PlotterPtEtaPhi:
                 # dphys
                 phys_l = self.trainer.embed_t5(x_left)
                 phys_r = self.trainer.embed_t5(x_right)
-                dphys = torch.sqrt(((phys_l[:, :4] - phys_r[:, :4]) ** 2).sum(dim=1, keepdim=True) + 1e-6)
+                dphys = torch.sqrt(((phys_l - phys_r) ** 2).sum(dim=1, keepdim=True) + 1e-6)
 
                 # store them
                 dist_t5_all.append(d.cpu().numpy().flatten())
@@ -542,7 +548,7 @@ class PlotterPtEtaPhi:
                 # dphys
                 phys_p = self.trainer.embed_pls(pls_feats)
                 phys_t = self.trainer.embed_t5(t5_feats)
-                dphys = torch.sqrt(((phys_p[:, :4] - phys_t[:, :4]) ** 2).sum(dim=1, keepdim=True) + 1e-6)
+                dphys = torch.sqrt(((phys_p - phys_t) ** 2).sum(dim=1, keepdim=True) + 1e-6)
 
                 dist_pls_all.append(d.cpu().numpy().flatten())
                 lbl_pls_all.append(y.numpy().flatten())
