@@ -9,11 +9,16 @@ import argparse
 import awkward as ak
 import numpy as np
 import pickle
+import time
 import uproot
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
+from matplotlib import rcParams
+rcParams.update({"font.size": 18})
+
+k2Rinv1GeVf = (2.99792458e-3 * 3.8) / 2
 
 TRACKING_NTUPLE = "/ceph/cms/store/user/evourlio/LST/samples/CMSSW_12_2_0_pre2/RelValTTbar_14TeV_CMSSW_12_5_0_pre3/event_1000.root"
 
@@ -164,22 +169,33 @@ class SimFeatureWriter:
             arr[arr < -np.pi] += 2 * np.pi
             # return arr
 
+        n_ev = len(self.features_per_event)
+        cat = np.concatenate
         diff = {}
-        diff["Sim eta - T5 eta"] = self.sim_features_t5["sim_eta"][0] - self.features_per_event[0][:, 0] * 2.5
-        diff["Sim phi - T5 phi"] = self.sim_features_t5["sim_phi"][0] - np.atan2(self.features_per_event[0][:, 2], self.features_per_event[0][:, 1])
-        normalize_angle(diff["Sim phi - T5 phi"])
 
-        diff["Sim 1/pT - pLS 1/pT"] = 1.0/self.sim_features_pls["sim_pt"][0] - self.pls_features_per_event[0][:, 4]
-        diff["Sim eta - pLS eta"] = self.sim_features_pls["sim_eta"][0] - self.pls_features_per_event[0][:, 0] * 4.0
-        diff["Sim phi - pLS phi"] = self.sim_features_pls["sim_phi"][0] - np.atan2(self.pls_features_per_event[0][:, 3], self.pls_features_per_event[0][:, 2])
+        # diffs of physics features
+        diff["Sim 1/pT - T5 1/pT"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - cat([self.features_per_event[ev][:, 21] / (k2Rinv1GeVf * 2) for ev in range(n_ev)])
+        diff["Sim eta - T5 eta"] = cat(self.sim_features_t5["sim_eta"]) - cat([self.features_per_event[ev][:, 0] for ev in range(n_ev)]) * 2.5
+        diff["Sim phi - T5 phi"] = cat(self.sim_features_t5["sim_phi"]) - cat([np.atan2(self.features_per_event[ev][:, 2],
+                                                                                        self.features_per_event[ev][:, 1]) for ev in range(n_ev)])
+
+        diff["Sim 1/pT - pLS 1/pT"] = 1.0/cat(self.sim_features_pls["sim_pt"]) - cat([self.pls_features_per_event[ev][:, 4] for ev in range(n_ev)])
+        diff["Sim eta - pLS eta"] = cat(self.sim_features_pls["sim_eta"]) - cat([self.pls_features_per_event[ev][:, 0] for ev in range(n_ev)]) * 4.0
+        diff["Sim phi - pLS phi"] = cat(self.sim_features_pls["sim_phi"]) - cat([np.atan2(self.pls_features_per_event[ev][:, 3],
+                                                                                          self.pls_features_per_event[ev][:, 2]) for ev in range(n_ev)])
+
+        # normalize dphis
+        normalize_angle(diff["Sim phi - T5 phi"])
         normalize_angle(diff["Sim phi - pLS phi"])
 
+        # define binnings
         bins = {
-            "Sim eta - T5 eta": np.linspace(-0.3, 0.3, 100),
-            "Sim phi - T5 phi": np.linspace(-0.3, 0.3, 100),
-            "Sim 1/pT - pLS 1/pT": np.linspace(-0.5, 0.5, 100),
-            "Sim eta - pLS eta": np.linspace(-0.05, 0.05, 100),
-            "Sim phi - pLS phi": np.linspace(-0.3, 0.3, 100),
+            "Sim 1/pT - T5 1/pT": np.linspace(-0.4, 0.4, 100),
+            "Sim eta - T5 eta": np.linspace(-0.4, 0.4, 100),
+            "Sim phi - T5 phi": np.linspace(-0.4, 0.4, 100),
+            "Sim 1/pT - pLS 1/pT": np.linspace(-0.4, 0.4, 100),
+            "Sim eta - pLS eta": np.linspace(-0.04, 0.04, 100),
+            "Sim phi - pLS phi": np.linspace(-0.4, 0.4, 100),
         }
 
         # diffs of a few selected features
@@ -188,6 +204,9 @@ class SimFeatureWriter:
             ax.hist(diff[name], bins=bins[name], color="green")
             ax.set_xlabel(name)
             ax.set_ylabel("Tracks")
+            ax.grid()
+            ax.set_axisbelow(True)
+            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
             pdf.savefig(fig)
             plt.close(fig)
 
@@ -214,6 +233,9 @@ class SimFeatureWriter:
                 ax.set_title(f"Matched to {coll} tracks")
                 ax.set_xlabel(br)
                 ax.set_ylabel("Tracks")
+                ax.grid()
+                ax.set_axisbelow(True)
+                fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
                 pdf.savefig(fig)
                 if "sim_pca_" in br:
                     ax.semilogy()
@@ -228,6 +250,9 @@ class SimFeatureWriter:
             ax.set_title(f"Matched to {coll} tracks")
             ax.set_xlabel("sim_q / sim_pt")
             ax.set_ylabel("Tracks")
+            ax.grid()
+            ax.set_axisbelow(True)
+            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
             pdf.savefig(fig)
             plt.close(fig)
 
