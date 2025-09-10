@@ -587,7 +587,12 @@ class PlotterPtEtaPhi:
 
     def plot_performance(self, pdf: PdfPages):
 
-        bins = np.linspace(-1.0, 1.0, 100)
+        bins = np.linspace(-0.4, 0.4, 100)
+        args = dict(edgecolor="black",
+                    histtype="stepfilled",
+                    color="yellow",
+                    )
+
 
         for (df_sim, df_emb, track) in [
             (self.df_sim_t5, self.df_emb_t5, "T5"),
@@ -596,13 +601,13 @@ class PlotterPtEtaPhi:
 
             # deta
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(df_sim["eta"] - df_emb["eta"], bins=bins)
+            ax.hist(df_sim["eta"] - df_emb["eta"], bins=bins, **args)
             ax.set_xlabel(f"Sim. eta - Predicted {track} eta")
             ax.set_ylabel("Tracks")
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
             ax.tick_params(top=True, right=True, direction="in")
-            fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.96)
+            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
             pdf.savefig()
             ax.semilogy()
             pdf.savefig()
@@ -632,13 +637,13 @@ class PlotterPtEtaPhi:
             dphi[dphi > np.pi] -= 2 * np.pi
             dphi[dphi < -np.pi] += 2 * np.pi
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(dphi, bins=bins)
+            ax.hist(dphi, bins=bins, **args)
             ax.set_xlabel(f"Sim. phi - Predicted {track} phi")
             ax.set_ylabel("Tracks")
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
             ax.tick_params(top=True, right=True, direction="in")
-            fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.96)
+            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
             pdf.savefig()
             ax.semilogy()
             pdf.savefig()
@@ -684,13 +689,13 @@ class PlotterPtEtaPhi:
 
             # dq/pt
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(df_sim["qoverpt"] - df_emb["qoverpt"], bins=bins)
+            ax.hist(df_sim["qoverpt"] - df_emb["qoverpt"], bins=bins, **args)
             ax.set_xlabel(f"Sim. q/pt - Predicted {track} q/pt")
             ax.set_ylabel("Tracks")
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
             ax.tick_params(top=True, right=True, direction="in")
-            fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.96)
+            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
             pdf.savefig()
             ax.semilogy()
             pdf.savefig()
