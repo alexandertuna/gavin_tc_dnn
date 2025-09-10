@@ -14,11 +14,13 @@ from matplotlib.colors import LogNorm
 from matplotlib.backends.backend_pdf import PdfPages
 
 from ml import SiameseDataset, PLST5Dataset, EmbeddingNetT5, EmbeddingNetpLS, ContrastiveLoss
-from ml import BasicDataset, PtEtaPhiNetT5, PtEtaPhiNetpLS
+from ml import BasicDataset, PtEtaPhiNet # , PtEtaPhiNetT5, PtEtaPhiNetpLS
 
 ETA_MAX = 2.5
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+EXPECTED_T5_INPUT_DIMS = [30]
+EXPECTED_PLS_INPUT_DIMS = [10, 11]
 
 class Trainer:
 
@@ -489,11 +491,6 @@ class TrainerPtEtaPhi:
         self.sim_features_t5_test   = sim_features_t5_test
         self.sim_features_pls_train = sim_features_pls_train
         self.sim_features_pls_test  = sim_features_pls_test
-        if any([self.sim_features_t5_train.shape[1] != self.emb_dim,
-                self.sim_features_t5_test.shape[1] != self.emb_dim,
-                self.sim_features_pls_train.shape[1] != self.emb_dim,
-                self.sim_features_pls_test.shape[1] != self.emb_dim]):
-            print(f"Error: sim features have wrong dimension, expected {self.emb_dim}")
 
         if not self.use_dxy_dz:
             print("Removing dxy and dz features ...")
@@ -502,6 +499,17 @@ class TrainerPtEtaPhi:
             self.sim_features_t5_test   = self.sim_features_t5_test[:, :-2]
             self.sim_features_pls_train = self.sim_features_pls_train[:, :-2]
             self.sim_features_pls_test  = self.sim_features_pls_test[:, :-2]
+
+        # check dimensions
+        if any([self.sim_features_t5_train.shape[1] != self.emb_dim,
+                self.sim_features_t5_test.shape[1] != self.emb_dim,
+                self.sim_features_pls_train.shape[1] != self.emb_dim,
+                self.sim_features_pls_test.shape[1] != self.emb_dim]):
+            print("sim_features_t5_train shape:", self.sim_features_t5_train.shape)
+            print("sim_features_t5_test shape:", self.sim_features_t5_test.shape)
+            print("sim_features_pls_train shape:", self.sim_features_pls_train.shape)
+            print("sim_features_pls_test shape:", self.sim_features_pls_test.shape)
+            raise ValueError(f"Error: sim features have wrong dimension, expected {self.emb_dim}")
 
         print("Creating datasets ...")
         train_t5_ds = BasicDataset(self.features_t5_train, self.sim_features_t5_train)
@@ -524,10 +532,22 @@ class TrainerPtEtaPhi:
         print(f"Loaders ready: T5 train {len(train_t5_ds)}, pLS train {len(train_pls_ds)}")
         print(f"Loaders ready: T5 test {len(test_t5_ds)}, pLS test {len(test_pls_ds)}")
 
+        # check features for input dimensions
+        print("features_t5_train shape:", self.features_t5_train.shape)
+        print("features_pls_train shape:", self.features_pls_train.shape)
+        input_dim_t5  = self.features_t5_train.shape[1]
+        input_dim_pls = self.features_pls_train.shape[1]
+        print(f"Input dimensions: T5 {input_dim_t5}, pLS {input_dim_pls}")
+        if input_dim_t5 not in EXPECTED_T5_INPUT_DIMS:
+            raise ValueError(f"Error: unexpected T5 input dimension {input_dim_t5}, expected one of {EXPECTED_T5_INPUT_DIMS}")
+        if input_dim_pls not in EXPECTED_PLS_INPUT_DIMS:
+            raise ValueError(f"Error: unexpected pLS input dimension {input_dim_pls}, expected one of {EXPECTED_PLS_INPUT_DIMS}")
+        self.use_pls_deltaphi = (input_dim_pls == 11)
+
         # instantiate and send to GPU/CPU
         print("Creating regression networks ...")
-        self.embed_t5 = PtEtaPhiNetT5(emb_dim=self.emb_dim).to(DEVICE)
-        self.embed_pls = PtEtaPhiNetpLS(emb_dim=self.emb_dim).to(DEVICE)
+        self.embed_t5 = PtEtaPhiNet(input_dim=input_dim_t5, emb_dim=self.emb_dim).to(DEVICE)
+        self.embed_pls = PtEtaPhiNet(input_dim=input_dim_pls, emb_dim=self.emb_dim).to(DEVICE)
 
         # optimizer for each net
         print("Creating T5 optimizer ...")
