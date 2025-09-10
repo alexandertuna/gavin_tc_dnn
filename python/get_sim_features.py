@@ -205,10 +205,16 @@ class SimFeatureWriter:
         for name in diff:
             track_type = "T5" if "T5" in name else "pLS"
             fig, ax = plt.subplots(figsize=(8, 8))
+            std = np.std(diff[name])
+            p68 = np.percentile(np.abs(diff[name]), 68)
+            p95 = np.percentile(np.abs(diff[name]), 95)
+            args["color"] = "skyblue" if track_type == "T5" else "pink"
             ax.hist(diff[name], bins=bins[name], **args)
             ax.set_xlabel(name)
             ax.set_ylabel("Tracks")
-            ax.set_title(f"Sim. vs. {track_type}")
+            ax.text(0.05, 1.01, f"Sim. vs. {track_type}", transform=ax.transAxes)
+            # ax.text(0.73, 1.03, f"Std = {std:.4f}", transform=ax.transAxes)
+            ax.text(0.42, 1.01, f"68% @ {p68:.3f}, 95% @ {p95:.3f}", transform=ax.transAxes)
             ax.grid()
             ax.set_axisbelow(True)
             ax.tick_params(right=True, top=True, direction="in")
