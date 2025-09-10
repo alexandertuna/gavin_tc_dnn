@@ -596,14 +596,60 @@ class PlotterPtEtaPhi:
 
         for (df_sim, df_emb, track) in [
             (self.df_sim_t5, self.df_emb_t5, "T5"),
-            (self.df_sim_pls, self.df_emb_pls, "PLS")
+            (self.df_sim_pls, self.df_emb_pls, "pLS")
         ]:
 
-            # deta
+            args["color"] = "mediumblue" if track == "T5" else "crimson"
+
+            # dq/pt
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(df_sim["eta"] - df_emb["eta"], bins=bins, **args)
+            diff = df_sim["qoverpt"] - df_emb["qoverpt"]
+            p68 = np.percentile(np.abs(diff), 68)
+            p95 = np.percentile(np.abs(diff), 95)
+            ax.hist(diff, bins=bins, **args)
+            ax.set_xlabel(f"Sim. q/pt - Predicted {track} q/pt")
+            ax.set_ylabel("Tracks")
+            ax.text(0.05, 1.01, f"Sim. vs. {track}", transform=ax.transAxes)
+            ax.text(0.42, 1.01, f"68% @ {p68:.3f}, 95% @ {p95:.3f}", transform=ax.transAxes)
+            ax.grid(alpha=0.3)
+            ax.set_axisbelow(True)
+            ax.tick_params(top=True, right=True, direction="in")
+            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
+            pdf.savefig()
+            ax.semilogy()
+            pdf.savefig()
+            plt.close()
+
+            # dq/pt vs q/pt
+            fig, ax = plt.subplots(figsize=(8, 8))
+            _, _, _, im = ax.hist2d(
+                df_sim["qoverpt"],
+                df_sim["qoverpt"] - df_emb["qoverpt"],
+                bins=(100, bins),
+                cmin=0.5,
+                cmap=self.cmap,
+                )
+            fig.colorbar(im, ax=ax, label="Tracks")
+            ax.set_xlabel("Sim. q/pt")
+            ax.set_ylabel(f"Sim. q/pt - Predicted {track} q/pt")
+            ax.grid(alpha=0.3)
+            ax.set_axisbelow(True)
+            ax.tick_params(top=True, right=True, direction="in")
+            fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.96)
+            pdf.savefig()
+            plt.close()
+
+            # deta
+            bins_ = bins if track == "T5" else np.linspace(-0.04, 0.04, 100)
+            fig, ax = plt.subplots(figsize=(8, 8))
+            diff = df_sim["eta"] - df_emb["eta"]
+            p68 = np.percentile(np.abs(diff), 68)
+            p95 = np.percentile(np.abs(diff), 95)
+            ax.hist(diff, bins=bins_, **args)
             ax.set_xlabel(f"Sim. eta - Predicted {track} eta")
             ax.set_ylabel("Tracks")
+            ax.text(0.05, 1.01, f"Sim. vs. {track}", transform=ax.transAxes)
+            ax.text(0.42, 1.01, f"68% @ {p68:.3f}, 95% @ {p95:.3f}", transform=ax.transAxes)
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
             ax.tick_params(top=True, right=True, direction="in")
@@ -633,13 +679,17 @@ class PlotterPtEtaPhi:
             plt.close()
 
             # dphi
-            dphi = df_sim["phi"] - df_emb["phi"]
-            dphi[dphi > np.pi] -= 2 * np.pi
-            dphi[dphi < -np.pi] += 2 * np.pi
+            diff = df_sim["phi"] - df_emb["phi"]
+            diff[diff > np.pi] -= 2 * np.pi
+            diff[diff < -np.pi] += 2 * np.pi
+            p68 = np.percentile(np.abs(diff), 68)
+            p95 = np.percentile(np.abs(diff), 95)
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(dphi, bins=bins, **args)
+            ax.hist(diff, bins=bins, **args)
             ax.set_xlabel(f"Sim. phi - Predicted {track} phi")
             ax.set_ylabel("Tracks")
+            ax.text(0.05, 1.01, f"Sim. vs. {track}", transform=ax.transAxes)
+            ax.text(0.42, 1.01, f"68% @ {p68:.3f}, 95% @ {p95:.3f}", transform=ax.transAxes)
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
             ax.tick_params(top=True, right=True, direction="in")
@@ -653,7 +703,7 @@ class PlotterPtEtaPhi:
             fig, ax = plt.subplots(figsize=(8, 8))
             _, _, _, im = ax.hist2d(
                 df_sim["phi"],
-                dphi,
+                diff,
                 bins=(100, bins),
                 cmin=0.5,
                 cmap=self.cmap,
@@ -672,7 +722,7 @@ class PlotterPtEtaPhi:
             fig, ax = plt.subplots(figsize=(8, 8))
             _, _, _, im = ax.hist2d(
                 df_sim["qoverpt"],
-                dphi,
+                diff,
                 bins=(100, bins),
                 cmin=0.5,
                 cmap=self.cmap,
@@ -687,35 +737,3 @@ class PlotterPtEtaPhi:
             pdf.savefig()
             plt.close()
 
-            # dq/pt
-            fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(df_sim["qoverpt"] - df_emb["qoverpt"], bins=bins, **args)
-            ax.set_xlabel(f"Sim. q/pt - Predicted {track} q/pt")
-            ax.set_ylabel("Tracks")
-            ax.grid(alpha=0.3)
-            ax.set_axisbelow(True)
-            ax.tick_params(top=True, right=True, direction="in")
-            fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
-            pdf.savefig()
-            ax.semilogy()
-            pdf.savefig()
-            plt.close()
-
-            # dq/pt vs q/pt
-            fig, ax = plt.subplots(figsize=(8, 8))
-            _, _, _, im = ax.hist2d(
-                df_sim["qoverpt"],
-                df_sim["qoverpt"] - df_emb["qoverpt"],
-                bins=(100, bins),
-                cmin=0.5,
-                cmap=self.cmap,
-                )
-            fig.colorbar(im, ax=ax, label="Tracks")
-            ax.set_xlabel("Sim. q/pt")
-            ax.set_ylabel(f"Sim. q/pt - Predicted {track} q/pt")
-            ax.grid(alpha=0.3)
-            ax.set_axisbelow(True)
-            ax.tick_params(top=True, right=True, direction="in")
-            fig.subplots_adjust(bottom=0.08, left=0.13, right=0.93, top=0.96)
-            pdf.savefig()
-            plt.close()
