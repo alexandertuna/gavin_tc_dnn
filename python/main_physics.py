@@ -103,7 +103,7 @@ def main():
                                 PAIRS_PLSPLS="pairs_plspls.pkl",
                                 use_phi_projection=False,
                                 use_phi_plus_pi=False,
-                                use_pls_deltaphi=False,
+                                use_pls_deltaphi=trainer.use_pls_deltaphi,
                                 use_no_phi=False,
                                 upweight_displaced=5.0,
                                 delta_r2_cut=0.02,
@@ -113,7 +113,7 @@ def main():
         train_emb = Trainer(seed=None,
                             num_epochs=None,
                             emb_dim=6,
-                            use_pls_deltaphi=None,
+                            use_pls_deltaphi=trainer.use_pls_deltaphi,
                             use_scheduler=args.use_scheduler,
                             # --------------------
                             bonus_features=proc_emb.bonus_features,
