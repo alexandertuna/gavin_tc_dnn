@@ -404,6 +404,7 @@ class PlotterPtEtaPhi:
         self.columns = ["qoverpt", "eta", "cosphi", "sinphi", "pca_dxy", "pca_dz"]
         if not self.use_dxy_dz:
             self.columns = self.columns[:-2]
+        self.lw = 3
         self.embed_test_data()
         self.make_dataframes()
 
@@ -507,10 +508,10 @@ class PlotterPtEtaPhi:
         auc_dphys = auc(fpr_dphys,  tpr_dphys)
 
         fig, ax = plt.subplots(figsize=(8, 8))
-        ax.plot(fpr_emb, tpr_emb, label=f"Embedding distance (AUC={auc_t5:.3f})")
-        ax.plot(fpr_dr, tpr_dr, '--', label=f"ΔR² baseline (AUC={auc_dr:.3f})")
-        ax.plot(fpr_dphys, tpr_dphys, ':', label=f"Phys. features (AUC={auc_dphys:.3f})")
-        ax.plot([0,1],[0,1], '--', color='grey')
+        ax.plot(fpr_emb, tpr_emb, linewidth=self.lw, label=f"Embedding distance, AUC={auc_t5:.3f}")
+        ax.plot(fpr_dr, tpr_dr, '--', linewidth=self.lw, label=f"ΔR² baseline, AUC={auc_dr:.3f}")
+        ax.plot(fpr_dphys, tpr_dphys, ':', linewidth=self.lw, label=f"(q/pt, eta, phi) distance, AUC={auc_dphys:.3f}")
+        ax.plot([0,1],[0,1], '--', linewidth=self.lw, color='grey')
         ax.set_xlabel("False Positive Rate")
         ax.set_ylabel("True Positive Rate")
         ax.set_title("T5-T5 Duplicate Discrimination")
@@ -570,10 +571,10 @@ class PlotterPtEtaPhi:
         auc_dphys = auc(fpr_dphys,  tpr_dphys)
 
         fig, ax = plt.subplots(figsize=(8, 8))
-        ax.plot(fpr_emb, tpr_emb, label=f"Embedding distance (AUC={auc_t5:.3f})")
-        ax.plot(fpr_dr, tpr_dr, '--', label=f"ΔR² baseline (AUC={auc_dr:.3f})")
-        ax.plot(fpr_dphys, tpr_dphys, ':', label=f"Phys. features (AUC={auc_dphys:.3f})")
-        ax.plot([0,1],[0,1], '--', color='grey')
+        ax.plot(fpr_emb, tpr_emb, linewidth=self.lw, label=f"Embedding distance, AUC={auc_t5:.3f}")
+        ax.plot(fpr_dr, tpr_dr, '--', linewidth=self.lw, label=f"ΔR² baseline, AUC={auc_dr:.3f}")
+        ax.plot(fpr_dphys, tpr_dphys, ':', linewidth=self.lw, label=f"(q/pt, eta, phi) distance, AUC={auc_dphys:.3f}")
+        ax.plot([0,1],[0,1], '--', linewidth=self.lw, color='grey')
         ax.set_xlabel("False Positive Rate")
         ax.set_ylabel("True Positive Rate")
         ax.set_title("T5-pLS Duplicate Discrimination")
