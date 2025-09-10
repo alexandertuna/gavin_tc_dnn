@@ -199,9 +199,12 @@ class SimFeatureWriter:
         }
 
         # diffs of a few selected features
+        args = dict(color="green",
+                    edgecolor="black",
+                    histtype="stepfilled")
         for name in diff:
             fig, ax = plt.subplots(figsize=(8, 8))
-            ax.hist(diff[name], bins=bins[name], color="green")
+            ax.hist(diff[name], bins=bins[name], **args)
             ax.set_xlabel(name)
             ax.set_ylabel("Tracks")
             ax.grid()
@@ -214,6 +217,8 @@ class SimFeatureWriter:
     def plot_features(self, pdf: PdfPages):
 
         # bare sim features
+        args = dict(edgecolor="black",
+                    histtype="stepfilled")
         for coll, sim_features in [("T5", self.sim_features_t5),
                                    ("pLS", self.sim_features_pls),
                                    ]:
@@ -229,7 +234,7 @@ class SimFeatureWriter:
                     xmax = 20 if coll == "T5" else 20
                     bins = np.linspace(-xmax, xmax, 101)
                 fig, ax = plt.subplots(figsize=(8, 8))
-                ax.hist(np.concatenate(sim_features[br]), bins=bins, color=color)
+                ax.hist(np.concatenate(sim_features[br]), bins=bins, color=color, **args)
                 ax.set_title(f"Matched to {coll} tracks")
                 ax.set_xlabel(br)
                 ax.set_ylabel("Tracks")
@@ -246,7 +251,7 @@ class SimFeatureWriter:
             bins = np.linspace(-2, 2, 101)
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.hist(np.concatenate(sim_features["sim_q"]) / np.concatenate(sim_features["sim_pt"]),
-                    bins=bins, color=color)
+                    bins=bins, color=color, **args)
             ax.set_title(f"Matched to {coll} tracks")
             ax.set_xlabel("sim_q / sim_pt")
             ax.set_ylabel("Tracks")
