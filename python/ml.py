@@ -113,8 +113,9 @@ class BasicDataset(Dataset):
         return self.x[idx], self.y[idx]
 
 
-class PtEtaPhiNetT5(nn.Module):
-    def __init__(self, input_dim=30, emb_dim=6):
+
+class PtEtaPhiNet(nn.Module):
+    def __init__(self, input_dim, emb_dim):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, NODES); self.relu1 = nn.ReLU()
         self.fc2 = nn.Linear(NODES, NODES);     self.relu2 = nn.ReLU()
@@ -125,13 +126,3 @@ class PtEtaPhiNetT5(nn.Module):
         return self.fc3(x)
 
 
-class PtEtaPhiNetpLS(nn.Module):
-    def __init__(self, input_dim=10, emb_dim=6):
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, NODES); self.relu1 = nn.ReLU()
-        self.fc2 = nn.Linear(NODES, NODES);     self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(NODES, emb_dim)
-    def forward(self, x):
-        x = self.relu1(self.fc1(x))
-        x = self.relu2(self.fc2(x))
-        return self.fc3(x)
