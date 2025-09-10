@@ -203,12 +203,15 @@ class SimFeatureWriter:
                     edgecolor="black",
                     histtype="stepfilled")
         for name in diff:
+            track_type = "T5" if "T5" in name else "pLS"
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.hist(diff[name], bins=bins[name], **args)
             ax.set_xlabel(name)
             ax.set_ylabel("Tracks")
+            ax.set_title(f"Sim. vs. {track_type}")
             ax.grid()
             ax.set_axisbelow(True)
+            ax.tick_params(right=True, top=True, direction="in")
             fig.subplots_adjust(left=0.17, right=0.96, top=0.95, bottom=0.1)
             pdf.savefig(fig)
             plt.close(fig)
