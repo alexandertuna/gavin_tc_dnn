@@ -104,6 +104,7 @@ def main():
                                 use_phi_projection=False,
                                 use_phi_plus_pi=False,
                                 use_pls_deltaphi=trainer.use_pls_deltaphi,
+                                use_pls_qoverpt=False,
                                 use_no_phi=False,
                                 upweight_displaced=5.0,
                                 delta_r2_cut=0.02,
