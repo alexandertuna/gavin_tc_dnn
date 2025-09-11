@@ -607,7 +607,7 @@ class PlotterPtEtaPhi:
             p68 = np.percentile(np.abs(diff), 68)
             p95 = np.percentile(np.abs(diff), 95)
             ax.hist(diff, bins=bins, **args)
-            ax.set_xlabel(f"Sim. q/pt - Predicted {track} q/pt")
+            ax.set_xlabel(f"Sim. q/pT - Predicted {track} q/pT")
             ax.set_ylabel("Tracks")
             ax.text(0.05, 1.01, f"Sim. vs. {track}", transform=ax.transAxes)
             ax.text(0.42, 1.01, f"68% @ {p68:.3f}, 95% @ {p95:.3f}", transform=ax.transAxes)
@@ -630,8 +630,8 @@ class PlotterPtEtaPhi:
                 cmap=self.cmap,
                 )
             fig.colorbar(im, ax=ax, label="Tracks")
-            ax.set_xlabel("Sim. q/pt")
-            ax.set_ylabel(f"Sim. q/pt - Predicted {track} q/pt")
+            ax.set_xlabel("Sim. q/pT")
+            ax.set_ylabel(f"Sim. q/pT - Predicted {track} q/pT")
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
             ax.tick_params(top=True, right=True, direction="in")
@@ -728,7 +728,7 @@ class PlotterPtEtaPhi:
                 cmap=self.cmap,
                 )
             fig.colorbar(im, ax=ax, label="Tracks")
-            ax.set_xlabel("Sim. q/pt")
+            ax.set_xlabel("Sim. q/pT")
             ax.set_ylabel(f"Sim. phi - Predicted {track} phi")
             ax.grid(alpha=0.3)
             ax.set_axisbelow(True)
