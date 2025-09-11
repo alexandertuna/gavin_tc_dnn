@@ -179,7 +179,7 @@ class SimFeatureWriter:
         diff["Sim phi - T5 phi"] = cat(self.sim_features_t5["sim_phi"]) - cat([np.atan2(self.features_per_event[ev][:, 2],
                                                                                         self.features_per_event[ev][:, 1]) for ev in range(n_ev)])
 
-        diff["Sim 1/pT - pLS 1/pT"] = 1.0/cat(self.sim_features_pls["sim_pt"]) - cat([self.pls_features_per_event[ev][:, 4] for ev in range(n_ev)])
+        diff["Sim 1/pT - pLS 1/pT"] = 1.0/cat(self.sim_features_pls["sim_pt"]) - cat([np.abs(self.pls_features_per_event[ev][:, 4]) for ev in range(n_ev)])
         diff["Sim eta - pLS eta"] = cat(self.sim_features_pls["sim_eta"]) - cat([self.pls_features_per_event[ev][:, 0] for ev in range(n_ev)]) * 4.0
         diff["Sim phi - pLS phi"] = cat(self.sim_features_pls["sim_phi"]) - cat([np.atan2(self.pls_features_per_event[ev][:, 3],
                                                                                           self.pls_features_per_event[ev][:, 2]) for ev in range(n_ev)])
