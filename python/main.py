@@ -45,6 +45,8 @@ def options():
                         help="Flag to use (phi, phi+pi) for features instead of (cosphi, sinphi)")
     parser.add_argument("--use_pls_deltaphi", action="store_true",
                         help="Flag to include pls deltaphi in features")
+    parser.add_argument("--use_pls_qoverpt", action="store_true",
+                        help="Flag to use pls q/pt in features instead of 1/pt")
     parser.add_argument("--use_scheduler", action="store_true",
                         help="Flag to use learning rate scheduler")
     parser.add_argument("--use_no_phi", action="store_true",
@@ -84,6 +86,7 @@ def main():
                              use_phi_projection=args.use_phi_projection,
                              use_phi_plus_pi=args.use_phi_plus_pi,
                              use_pls_deltaphi=args.use_pls_deltaphi,
+                             use_pls_qoverpt=args.use_pls_qoverpt,
                              use_no_phi=args.use_no_phi,
                              upweight_displaced=args.upweight_displaced,
                              delta_r2_cut=args.delta_r2_cut,

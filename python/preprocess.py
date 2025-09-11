@@ -204,6 +204,7 @@ class Preprocessor:
                  use_phi_projection,
                  use_phi_plus_pi,
                  use_pls_deltaphi,
+                 use_pls_qoverpt,
                  use_no_phi,
                  upweight_displaced,
                  delta_r2_cut,
@@ -223,6 +224,7 @@ class Preprocessor:
         self.use_phi_projection = use_phi_projection
         self.use_phi_plus_pi = use_phi_plus_pi
         self.use_pls_deltaphi = use_pls_deltaphi
+        self.use_pls_qoverpt = use_pls_qoverpt
         self.use_no_phi = use_no_phi
         self.upweight_displaced = upweight_displaced
         self.DELTA_R2_CUT = delta_r2_cut
@@ -232,6 +234,7 @@ class Preprocessor:
         print(f"Using projected phi: {self.use_phi_projection}")
         print(f"Using (phi, phi+pi) for features: {self.use_phi_plus_pi}")
         print(f"Using pLS deltaPhi: {self.use_pls_deltaphi}")
+        print(f"Using pLS q/pt: {self.use_pls_qoverpt}")
         print(f"Upweighting displaced T5s: {self.upweight_displaced}")
         print(f"Delta R^2 cut: {self.DELTA_R2_CUT}")
         print(f"Test size: {self.test_size}")
@@ -695,6 +698,7 @@ class Preprocessor:
                 ptIn = branches['pLS_ptIn'][ev][i]
                 ptErr = branches['pLS_ptErr'][ev][i]
                 isQuad = branches['pLS_isQuad'][ev][i]
+                charge = branches['pLS_charge'][ev][i]
                 if self.use_pls_deltaphi:
                     deltaPhi = branches['pLS_deltaPhi'][ev][i]
                 phi_proj = phi_projected[i] # if self.use_phi_projection else 0.0
@@ -705,7 +709,7 @@ class Preprocessor:
                     etaErr/.00139,
                     np.cos(phi),
                     np.sin(phi),
-                    1.0 / ptIn,
+                    (charge if self.use_pls_qoverpt else 1.0) / ptIn,
                     np.log10(ptErr),
                     isQuad,
                     np.log10(circleCenterX),
