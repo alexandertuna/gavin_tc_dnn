@@ -43,6 +43,12 @@ def options():
                         help="Load Gavin embedding model weights from the specified path instead of training")
     parser.add_argument("--use_dxy_dz", action="store_true",
                         help="Use dxy and dz features in addition to pt, eta, phi")
+    parser.add_argument("--c_qpt", type=float, default=1.0,
+                        help="Weight for qoverpt in the Euclidean distance calculation")
+    parser.add_argument("--c_eta", type=float, default=1.0,
+                        help="Weight for eta in the Euclidean distance calculation")
+    parser.add_argument("--c_phi", type=float, default=1.0,
+                        help="Weight for phi in the Euclidean distance calculation")
     return parser.parse_args()
 
 
@@ -70,6 +76,10 @@ def main():
                               use_dxy_dz=args.use_dxy_dz,
                               # --------------------
                               bonus_features=processor.bonus_features,
+                              # --------------------
+                              c_qpt=args.c_qpt,
+                              c_eta=args.c_eta,
+                              c_phi=args.c_phi,
                               # --------------------
                               features_t5_train=processor.features_t5_train,
                               features_t5_test=processor.features_t5_test,

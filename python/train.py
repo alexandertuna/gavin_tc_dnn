@@ -459,6 +459,10 @@ class TrainerPtEtaPhi:
                  use_dxy_dz: bool,
                  bonus_features: int,
                  # ------------
+                 c_qpt: float,
+                 c_eta: float,
+                 c_phi: float,
+                 # ------------
                  features_t5_train,
                  features_t5_test,
                  features_pls_train,
@@ -478,8 +482,12 @@ class TrainerPtEtaPhi:
         self.num_epochs = num_epochs
         self.use_scheduler = use_scheduler
         self.use_dxy_dz = use_dxy_dz
+        self.c_qpt = c_qpt
+        self.c_eta = c_eta
+        self.c_phi = c_phi
         print(f"Using seed {seed}, num_epochs {num_epochs}, use_scheduler {use_scheduler}")
         print(f"Using dxy and dz features: {self.use_dxy_dz}")
+        print(f"Using c_qpt={self.c_qpt}, c_eta={self.c_eta}, c_phi={self.c_phi}")
 
         def remove_bonus_features(X):
             return X[:, :-bonus_features] if bonus_features > 0 else X
@@ -594,6 +602,11 @@ class TrainerPtEtaPhi:
         self.losses_t5 = []
         self.losses_pls = []
 
+        weights = torch.tensor([self.c_qpt,
+                                self.c_eta,
+                                self.c_phi,
+                                self.c_phi], device=DEVICE)
+
         mse_loss_t5 = nn.MSELoss(reduction="mean")
         mse_loss_pls = nn.MSELoss(reduction="mean")
 
@@ -607,19 +620,9 @@ class TrainerPtEtaPhi:
                 x_t5 = x_t5.to(DEVICE)
                 y_t5 = y_t5.to(DEVICE)
                 pred = self.embed_t5(x_t5)
-                loss = mse_loss_t5(pred, y_t5)
-                # if it == 0:
-                #     with torch.no_grad():
-                #         print("")
-                #         print("pred\n", pred[:5, :].cpu().numpy())
-                #         print("y_t5\n", y_t5[:5, :].cpu().numpy())
-                #         print("loss\n", loss.shape)
-                #         print("loss\n", loss)
-                #         # diff2 = (pred.cpu().numpy() - y_t5.cpu().numpy()) ** 2
-                #         # print("diff2 mean:", diff2.flatten().sum() / len(diff2.flatten()))
-                #         # reproduce mse loss calculation
-                #         print("diff2 mean:", ((pred - y_t5) ** 2).mean().item())
-                #         print("")
+                diff = pred - y_t5
+                loss = (weights * diff.pow(2)).mean()
+                # loss = mse_loss_t5(pred, y_t5)
 
                 self.optimizer_t5.zero_grad()
                 loss.backward()
@@ -632,7 +635,9 @@ class TrainerPtEtaPhi:
                 x_pls = x_pls.to(DEVICE)
                 y_pls = y_pls.to(DEVICE)
                 pred = self.embed_pls(x_pls)
-                loss = mse_loss_pls(pred, y_pls)
+                diff = pred - y_pls
+                loss = (weights * diff.pow(2)).mean()
+                # loss = mse_loss_pls(pred, y_pls)
 
                 self.optimizer_pls.zero_grad()
                 loss.backward()
@@ -648,10 +653,10 @@ class TrainerPtEtaPhi:
 
             summary = " ".join([
                 f"Epoch {epoch}/{self.num_epochs}:",
-                f"T5 loss={avg_loss_t5:.4f},",
-                f"pLS loss={avg_loss_pls:.4f},",
-                f"T5 test loss={test_loss_t5:.4f},",
-                f"pLS test loss={test_loss_pls:.4f},",
+                f"T5 loss={avg_loss_t5:.5f},",
+                f"pLS loss={avg_loss_pls:.5f},",
+                f"T5 test loss={test_loss_t5:.5f},",
+                f"pLS test loss={test_loss_pls:.5f},",
                 f"T5 LR={self.optimizer_t5.param_groups[0]['lr']:.6f},",
                 f"pLS LR={self.optimizer_pls.param_groups[0]['lr']:.6f}",
             ])
