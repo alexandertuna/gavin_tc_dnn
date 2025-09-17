@@ -1,0 +1,12 @@
+executable            = hello_world.sh
+arguments             = $(ClusterId) $(ProcId)
+output                = output/analysis.$(ClusterId).$(ProcId).out
+error                 = error/analysis.$(ClusterId).$(ProcId).err
+log                   = log/analysis.$(ClusterId).log
+
+# Resource specifications
+request_cpus          = 2
+request_memory        = 4096MB
+request_disk          = 10GB
+
+queue
