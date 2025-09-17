@@ -174,7 +174,11 @@ class SimFeatureWriter:
         diff = {}
 
         # diffs of physics features
-        diff["Sim 1/pT - T5 1/pT"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - cat([self.features_per_event[ev][:, 21] / (k2Rinv1GeVf * 2) for ev in range(n_ev)])
+        inR = cat([1.0/self.features_per_event[ev][:, 21] for ev in range(n_ev)])
+        outR = cat([1.0/self.features_per_event[ev][:, 23] for ev in range(n_ev)])
+        # t5_pt = (inR + outR) * k2Rinv1GeVf
+        t5_pt = 2.0 * inR * k2Rinv1GeVf
+        diff["Sim 1/pT - T5 1/pT"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt)
         diff["Sim eta - T5 eta"] = cat(self.sim_features_t5["sim_eta"]) - cat([self.features_per_event[ev][:, 0] for ev in range(n_ev)]) * 2.5
         diff["Sim phi - T5 phi"] = cat(self.sim_features_t5["sim_phi"]) - cat([np.atan2(self.features_per_event[ev][:, 2],
                                                                                         self.features_per_event[ev][:, 1]) for ev in range(n_ev)])
