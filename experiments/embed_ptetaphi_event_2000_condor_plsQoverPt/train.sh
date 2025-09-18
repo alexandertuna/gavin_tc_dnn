@@ -34,7 +34,7 @@ MODEL="model_weights_ptetaphi_${C_QPT}_${C_ETA}_${C_PHI}.pth"
 PDF="plots_ptetaphi_${C_QPT}_${C_ETA}_${C_PHI}.pdf"
 MAIN="${TOP}/python/main_physics.py"
 DATA="${TOP}/experiments/embed_ptetaphi_event_2000_condor_plsQoverPt"
-EPOCHS="2"
+EPOCHS="100"
 
 echo "${DATA}/env/bin/python --version"
 ${DATA}/env/bin/python --version
