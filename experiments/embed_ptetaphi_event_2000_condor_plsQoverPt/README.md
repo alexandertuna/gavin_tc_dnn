@@ -15,6 +15,7 @@ My first attempt at launching jobs on UAF condor included many steps and misstep
 
 Things which caused missteps:
 
+- Ideally: dont rerun `pip install ...` during every worker job
 - Trying to run with my local venv doesn't work because my venv symlinks to a python executable which doesn't exist at the same path on the workers
 - Trying to run with my local venv also doesn't work because many workers have a relatively old python installation (3.6)
 - Trying to run with a python docker image doesn't work, with this error:
