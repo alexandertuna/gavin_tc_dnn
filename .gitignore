@@ -175,6 +175,7 @@ cython_debug/
 
 # Misc
 .DS_Store
+*.sif
 *.pkl
 *.npy
 *.npz
