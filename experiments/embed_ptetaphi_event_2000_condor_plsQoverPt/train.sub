@@ -1,0 +1,31 @@
+# what to run
+# universe   = vanilla
+# universe        = container
+# container_image = docker://python:3.10-slim
+# +SingularityImage = "docker://ubuntu:latest"
+# +SingularityImage = "/cvmfs/singularity.opensciencegrid.org/opensciencegrid/osgvo-el8:latest"
+# +SingularityImage = "/ceph/users/atuna/work/gavin_tc_dnn/condor/python310.sif"
+# +SingularityImage = "/cvmfs/singularity.opensciencegrid.org/opensciencegrid/osgvo-xenon:latest"
++SingularityImage = "/cvmfs/singularity.opensciencegrid.org/opensciencegrid/osgvo-el9:latest"
+
+executable = train.sh
+arguments  = $(C_QPT) $(C_ETA) $(C_PHI)
+output     = logs/physics_$(C_QPT)_$(C_ETA)_$(C_PHI).$(ClusterId).$(ProcId).out
+error      = logs/physics_$(C_QPT)_$(C_ETA)_$(C_PHI).$(ClusterId).$(ProcId).err
+log        = logs/condor.$(ClusterId).$(ProcId).log
+
+# shared filesystem: no transfer
+# should_transfer_files = NO
+
+# resources
+request_cpus   = 2
+request_memory = 4096MB
+request_disk   = 5GB
+# request_cpus   = 4
+# request_memory = 8 GB
+# +JobFlavour = "microcentury"
+# +DESIRED_Sites = "T2_US_Purdue,T2_US_Nebraska"
++DESIRED_Sites = "T2_US_UCSD"
+
+# queue the grid
+queue C_QPT, C_ETA, C_PHI from grid.txt
