@@ -521,6 +521,10 @@ class PlotterPtEtaPhi:
         pdf.savefig(fig)
         plt.close(fig)
 
+        print(f"auc_t5t5_emb = {float(auc_t5)}")
+        print(f"auc_t5t5_dr = {float(auc_dr)}")
+        print(f"auc_t5t5_dphys = {float(auc_dphys)}")
+
 
     def plot_t5pls_roc_curves(self, pdf: PdfPages):
         print("Plotting T5-PLS ROC curves")
@@ -583,6 +587,10 @@ class PlotterPtEtaPhi:
         ax.set_axisbelow(True)
         pdf.savefig(fig)
         plt.close(fig)
+
+        print(f"auc_t5pls_emb = {float(auc_t5)}")
+        print(f"auc_t5pls_dr = {float(auc_dr)}")
+        print(f"auc_t5pls_dphys = {float(auc_dphys)}")
 
 
     def plot_performance(self, pdf: PdfPages):
