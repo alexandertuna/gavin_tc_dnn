@@ -604,8 +604,8 @@ class TrainerPtEtaPhi:
 
         weights = torch.tensor([self.c_qpt,
                                 self.c_eta,
-                                self.c_phi,
-                                self.c_phi], device=DEVICE)
+                                self.c_phi/2.0,
+                                self.c_phi/2.0], device=DEVICE)
 
         mse_loss_t5 = nn.MSELoss(reduction="mean")
         mse_loss_pls = nn.MSELoss(reduction="mean")
