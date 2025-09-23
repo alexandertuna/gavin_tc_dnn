@@ -175,10 +175,13 @@ class SimFeatureWriter:
 
         # diffs of physics features
         inR = cat([1.0/self.features_per_event[ev][:, 21] for ev in range(n_ev)])
+        brR = cat([1.0/self.features_per_event[ev][:, 22] for ev in range(n_ev)])
         outR = cat([1.0/self.features_per_event[ev][:, 23] for ev in range(n_ev)])
-        # t5_pt = (inR + outR) * k2Rinv1GeVf
-        t5_pt = 2.0 * inR * k2Rinv1GeVf
-        diff["Sim 1/pT - T5 1/pT"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt)
+        t5_pt_quint = (inR + outR) * k2Rinv1GeVf
+        t5_pt_inner = 2.0 * inR * k2Rinv1GeVf
+        t5_pt_outer = 2.0 * outR * k2Rinv1GeVf
+        t5_pt_bridge = 2.0 * brR * k2Rinv1GeVf
+        diff["Sim 1/pT - T5 1/pT"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt_inner)
         diff["Sim eta - T5 eta"] = cat(self.sim_features_t5["sim_eta"]) - cat([self.features_per_event[ev][:, 0] for ev in range(n_ev)]) * 2.5
         diff["Sim phi - T5 phi"] = cat(self.sim_features_t5["sim_phi"]) - cat([np.atan2(self.features_per_event[ev][:, 2],
                                                                                         self.features_per_event[ev][:, 1]) for ev in range(n_ev)])
@@ -187,6 +190,13 @@ class SimFeatureWriter:
         diff["Sim eta - pLS eta"] = cat(self.sim_features_pls["sim_eta"]) - cat([self.pls_features_per_event[ev][:, 0] for ev in range(n_ev)]) * 4.0
         diff["Sim phi - pLS phi"] = cat(self.sim_features_pls["sim_phi"]) - cat([np.atan2(self.pls_features_per_event[ev][:, 3],
                                                                                           self.pls_features_per_event[ev][:, 2]) for ev in range(n_ev)])
+
+        # alternative pt definitions
+        diff["Sim 1/pT - T5 1/pT (inner R)"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt_inner)
+        diff["Sim 1/pT - T5 1/pT (outer R)"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt_outer)
+        diff["Sim 1/pT - T5 1/pT (bridge R)"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt_bridge)
+        diff["Sim 1/pT - T5 1/pT (Quintuplet.h)"] = 1.0/cat(self.sim_features_t5["sim_pt"]) - 1.0/np.abs(t5_pt_quint)
+
 
         # normalize dphis
         normalize_angle(diff["Sim phi - T5 phi"])
@@ -200,6 +210,10 @@ class SimFeatureWriter:
             "Sim 1/pT - pLS 1/pT": np.linspace(-0.4, 0.4, 100),
             "Sim eta - pLS eta": np.linspace(-0.04, 0.04, 100),
             "Sim phi - pLS phi": np.linspace(-0.4, 0.4, 100),
+            "Sim 1/pT - T5 1/pT (inner R)": np.linspace(-0.4, 0.4, 100),
+            "Sim 1/pT - T5 1/pT (outer R)": np.linspace(-0.4, 0.4, 100),
+            "Sim 1/pT - T5 1/pT (bridge R)": np.linspace(-0.4, 0.4, 100),
+            "Sim 1/pT - T5 1/pT (Quintuplet.h)": np.linspace(-0.4, 0.4, 100),
         }
 
         # diffs of a few selected features
