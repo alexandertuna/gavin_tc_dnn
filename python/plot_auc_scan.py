@@ -5,11 +5,18 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import rcParams
 rcParams["font.size"] = 16
 
-TOPDIR = "/ceph/users/atuna/work/gavin_tc_dnn/experiments/embed_ptetaphi_event_1000_plsQoverPt/condor"
+TOPDIR = "/ceph/users/atuna/work/gavin_tc_dnn/experiments/embed_ptetaphi_event_1000_plsQoverPt/run_01"
 
-C_QPTS = [0.25, 0.5, 1.0, 2.0, 4.0]
-C_ETAS = [0.25, 0.5, 1.0, 2.0, 4.0]
-C_PHIS = [0.25, 0.5, 1.0, 2.0, 4.0]
+# run_00
+# C_QPTS = [0.25, 0.5, 1.0, 2.0, 4.0]
+# C_ETAS = [0.25, 0.5, 1.0, 2.0, 4.0]
+# C_PHIS = [0.25, 0.5, 1.0, 2.0, 4.0]
+
+# run_01
+C_QPTS = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+C_ETAS = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+C_PHIS = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+
 
 def main():
 
@@ -30,10 +37,19 @@ def main():
                  ] = get_aucs(fname)
                 aucs_t5t5_dphys[c_qpt, c_eta, c_phi] = auc_t5t5_dphys
 
+    print_top(aucs_t5t5_dphys)
 
     with PdfPages("aucs.pdf") as pdf:
         plot(aucs_t5t5_dphys, pdf)
 
+
+def print_top(aucs, num=5):
+    total = len(aucs)
+    sorted_aucs = dict(sorted(aucs.items(), key=lambda item: item[1], reverse=True))
+    for it, (key, auc) in enumerate(sorted_aucs.items()):
+        if it >= num and it < total - num and key != (1.0, 1.0, 2.0):
+            continue
+        print(f"{it} {key} {auc:.5f}")
 
 def plot(aucs, pdf):
     vmin, vmax = 0.94, 0.96
